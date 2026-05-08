@@ -20,6 +20,6 @@ module.exports = [
     },
   },
   {
-    ignores: ["node_modules", "test-builds", "*.js", "*.d.ts"],
+    ignores: ["node_modules", "test-builds", "dist/**", "**/*.js", "**/*.d.ts"],
   },
 ];

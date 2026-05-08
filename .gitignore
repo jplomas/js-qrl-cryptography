@@ -1,9 +1,8 @@
-/*.js
-!/eslint.config.js
-/*.js.map
-/*.d.ts
-/*.d.ts.map
 /bip39
 /test-builds
 /node_modules
 /.parcel-cache
+/coverage
+/coverage.lcov
+/test-results
+/playwright-report
