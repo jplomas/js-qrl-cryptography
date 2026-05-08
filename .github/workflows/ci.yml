@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npm test
+
+  dist-check:
+    name: Verify dist/ is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - run: npm ci
+      - run: npm run build
+      - name: Check for uncommitted dist changes
+        run: |
+          if [ -n "$(git diff --name-only dist/)" ]; then
+            echo "::error::dist/ files are out of date. Run 'npm run build' and commit the result."
+            git diff --stat dist/
+            exit 1
+          fi
+
+  browser-tests:
+    name: Browser Tests (Karma)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - run: npm ci
+      - run: npm run browser-tests

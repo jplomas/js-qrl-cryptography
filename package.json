@@ -7,11 +7,46 @@
     "url": "git+https://github.com/theQRL/js-qrl-cryptography.git"
   },
   "license": "MIT",
-  "main": "./index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./aes": {
+      "types": "./dist/aes.d.ts",
+      "default": "./dist/aes.js"
+    },
+    "./argon2id": {
+      "types": "./dist/argon2id.d.ts",
+      "default": "./dist/argon2id.js"
+    },
+    "./keccak": {
+      "types": "./dist/keccak.d.ts",
+      "default": "./dist/keccak.js"
+    },
+    "./ml_dsa87": {
+      "types": "./dist/ml_dsa87.d.ts",
+      "default": "./dist/ml_dsa87.js"
+    },
+    "./random": {
+      "types": "./dist/random.d.ts",
+      "default": "./dist/random.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
-    "*.js",
-    "*.d.ts"
+    "dist",
+    "src"
   ],
+  "engines": {
+    "node": ">=20.19"
+  },
   "dependencies": {
     "@noble/curves": "1.0.0",
     "@noble/hashes": "~1.8.0",
@@ -22,12 +57,14 @@
   },
   "sideEffects": false,
   "scripts": {
-    "prepare": "npm run build",
     "build": "npm-run-all build:tsc",
     "build:tsc": "tsc --project tsconfig.prod.json",
+    "prepublishOnly": "npm run build",
     "test": "npm-run-all test:node",
     "test:node": "mocha",
-    "clean": "rimraf test-builds '*.js' '*.js.map' '*.d.ts' '*.d.ts.map' 'src/**/*.js'",
+    "coverage": "c8 npm run test",
+    "report-coverage": "c8 --reporter=text-lcov npm run test > coverage.lcov",
+    "clean": "rimraf test-builds dist coverage coverage.lcov",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "browser-tests": "npm-run-all browser-tests:build browser-tests:test",
@@ -40,11 +77,16 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.2",
     "@rollup/plugin-node-resolve": "16.0.3",
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/exec": "7.1.0",
+    "@semantic-release/git": "10.0.1",
     "@types/estree": "1.0.8",
     "@types/mocha": "9.1.1",
     "@types/node": "18.15.11",
     "@typescript-eslint/eslint-plugin": "8.58.0",
     "@typescript-eslint/parser": "8.58.0",
+    "c8": "11.0.0",
+    "conventional-changelog-conventionalcommits": "9.3.0",
     "eslint": "9.26.0",
     "eslint-plugin-prettier": "5.5.5",
     "karma": "6.4.0",
@@ -57,10 +99,35 @@
     "prettier": "3.8.1",
     "rimraf": "~3.0.2",
     "rollup": "4.59.0",
+    "semantic-release": "24.2.0",
     "ts-node": "10.9.1",
     "typescript": "5.0.2",
     "webpack": "5.104.1",
     "webpack-cli": "4.10"
+  },
+  "c8": {
+    "include": [
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "scripts/**",
+      "dist/**",
+      "test/**",
+      "test-builds/**"
+    ],
+    "all": true,
+    "src": [
+      "src"
+    ]
+  },
+  "overrides": {
+    "serialize-javascript": "7.0.5",
+    "minimatch": "10.2.4",
+    "glob": "13.0.6",
+    "tar": "7.5.11",
+    "diff": "8.0.3",
+    "picomatch": "4.0.4",
+    "brace-expansion": "5.0.5"
   },
   "keywords": [
     "qrl",
