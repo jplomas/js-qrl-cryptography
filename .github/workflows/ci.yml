@@ -54,7 +54,7 @@ jobs:
           fi
 
   browser-tests:
-    name: Browser Tests (Karma)
+    name: Browser Tests (Playwright)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -63,4 +63,5 @@ jobs:
         with:
           node-version: '22.x'
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run browser-tests

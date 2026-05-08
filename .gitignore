@@ -4,3 +4,5 @@
 /.parcel-cache
 /coverage
 /coverage.lcov
+/test-results
+/playwright-report
