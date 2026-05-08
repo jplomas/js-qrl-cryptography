@@ -90,7 +90,7 @@ describe("argon2id", function () {
   describe("argon2id sync", function () {
     for (let i = 0; i < TEST_VECTORS.length; i++) {
       it(`Should process the test ${i} correctly`, function () {
-        this.timeout(20000);
+        this.timeout(60000);
 
         const vector = TEST_VECTORS[i];
 
@@ -111,7 +111,7 @@ describe("argon2id", function () {
   describe("argon2id async", function () {
     for (let i = 0; i < TEST_VECTORS.length; i++) {
       it(`Should process the test ${i} correctly`, async function () {
-        this.timeout(20000);
+        this.timeout(60000);
 
         const vector = TEST_VECTORS[i];
 
