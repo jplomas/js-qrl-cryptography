@@ -26,6 +26,6 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.lcov
+          files: ./coverage/lcov.info
           flags: cryptography
           fail_ci_if_error: true
