@@ -1,6 +1,6 @@
 {
   "name": "@theqrl/qrl-cryptography",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "All the cryptographic primitives used in QRL",
   "repository": {
     "type": "git",
@@ -84,18 +84,42 @@
   ],
   "typesVersions": {
     "*": {
-      "aes": ["./dist/mjs/aes.d.ts"],
-      "aes.js": ["./dist/mjs/aes.d.ts"],
-      "argon2id": ["./dist/mjs/argon2id.d.ts"],
-      "argon2id.js": ["./dist/mjs/argon2id.d.ts"],
-      "keccak": ["./dist/mjs/keccak.d.ts"],
-      "keccak.js": ["./dist/mjs/keccak.d.ts"],
-      "ml_dsa87": ["./dist/mjs/ml_dsa87.d.ts"],
-      "ml_dsa87.js": ["./dist/mjs/ml_dsa87.d.ts"],
-      "random": ["./dist/mjs/random.d.ts"],
-      "random.js": ["./dist/mjs/random.d.ts"],
-      "utils": ["./dist/mjs/utils.d.ts"],
-      "utils.js": ["./dist/mjs/utils.d.ts"]
+      "aes": [
+        "./dist/mjs/aes.d.ts"
+      ],
+      "aes.js": [
+        "./dist/mjs/aes.d.ts"
+      ],
+      "argon2id": [
+        "./dist/mjs/argon2id.d.ts"
+      ],
+      "argon2id.js": [
+        "./dist/mjs/argon2id.d.ts"
+      ],
+      "keccak": [
+        "./dist/mjs/keccak.d.ts"
+      ],
+      "keccak.js": [
+        "./dist/mjs/keccak.d.ts"
+      ],
+      "ml_dsa87": [
+        "./dist/mjs/ml_dsa87.d.ts"
+      ],
+      "ml_dsa87.js": [
+        "./dist/mjs/ml_dsa87.d.ts"
+      ],
+      "random": [
+        "./dist/mjs/random.d.ts"
+      ],
+      "random.js": [
+        "./dist/mjs/random.d.ts"
+      ],
+      "utils": [
+        "./dist/mjs/utils.d.ts"
+      ],
+      "utils.js": [
+        "./dist/mjs/utils.d.ts"
+      ]
     }
   },
   "engines": {

@@ -1,3 +1,9 @@
+## [0.1.3](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.2...v0.1.3) (2026-05-09)
+
+### Bug Fixes
+
+* more typescript enhancements ([97a9e6a](https://github.com/theQRL/js-qrl-cryptography/commit/97a9e6aa5c7974ace8a905ac475e70244a1a5a2e))
+
 ## [0.1.2](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.1...v0.1.2) (2026-05-09)
 
 ### Bug Fixes
