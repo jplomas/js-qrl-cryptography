@@ -1,3 +1,9 @@
+## [0.1.2](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.1...v0.1.2) (2026-05-09)
+
+### Bug Fixes
+
+* close audit items CIPH-QRLCR26-[1-15] ([73be142](https://github.com/theQRL/js-qrl-cryptography/commit/73be14298e04fa33c07edcca2b9b56ca32ebae1a))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
