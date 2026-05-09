@@ -1,6 +1,11 @@
-import { keccak224, keccak256, keccak384, keccak512 } from "../../src/keccak";
-import { hexToBytes, toHex, utf8ToBytes } from "../../src/utils";
-import { deepStrictEqual } from "./assert";
+import {
+  keccak224,
+  keccak256,
+  keccak384,
+  keccak512,
+} from "../../src/keccak.js";
+import { hexToBytes, toHex, utf8ToBytes } from "../../src/utils.js";
+import { deepStrictEqual } from "./assert.js";
 
 export const keccak224Vectors = [
   {
@@ -85,4 +90,20 @@ describe("keccak", function () {
       }
     });
   }
+
+  describe("keccak256.create() streaming interface", function () {
+    for (const [i, vector] of keccak256Vectors.entries()) {
+      it(`matches the function form for test ${i}`, function () {
+        const h = keccak256.create();
+        if (vector.input.length > 0) {
+          const mid = Math.floor(vector.input.length / 2);
+          h.update(vector.input.subarray(0, mid));
+          h.update(vector.input.subarray(mid));
+        } else {
+          h.update(vector.input);
+        }
+        deepStrictEqual(toHex(h.digest()), vector.output);
+      });
+    }
+  });
 });

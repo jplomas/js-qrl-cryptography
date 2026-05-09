@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "rootDir": "src",
-    "outDir": "dist",
+    "outDir": "dist/mjs",
     "declaration": true
   },
   "include": [

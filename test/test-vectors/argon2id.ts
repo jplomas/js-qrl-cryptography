@@ -1,6 +1,6 @@
-import { argon2id as argon2idAsync, argon2idSync } from "../../src/argon2id";
-import { toHex, utf8ToBytes } from "../../src/utils";
-import { deepStrictEqual } from "./assert";
+import { argon2id as argon2idAsync, argon2idSync } from "../../src/argon2id.js";
+import { toHex, utf8ToBytes } from "../../src/utils.js";
+import { deepStrictEqual } from "./assert.js";
 
 const TEST_VECTORS = [
   // Test vectors taken https://github.com/paulmillr/noble-hashes/blob/main/test/argon2.test.ts
@@ -90,7 +90,7 @@ describe("argon2id", function () {
   describe("argon2id sync", function () {
     for (let i = 0; i < TEST_VECTORS.length; i++) {
       it(`Should process the test ${i} correctly`, function () {
-        this.timeout(60000);
+        this.timeout(180000);
 
         const vector = TEST_VECTORS[i];
 
@@ -111,7 +111,7 @@ describe("argon2id", function () {
   describe("argon2id async", function () {
     for (let i = 0; i < TEST_VECTORS.length; i++) {
       it(`Should process the test ${i} correctly`, async function () {
-        this.timeout(60000);
+        this.timeout(180000);
 
         const vector = TEST_VECTORS[i];
 

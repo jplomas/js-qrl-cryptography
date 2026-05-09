@@ -1,5 +1,5 @@
 // buf.toString('hex') -> toHex(buf)
-import { hexToBytes as _hexToBytes, abytes } from "@noble/hashes/utils";
+import { hexToBytes as _hexToBytes, abytes } from "@noble/hashes/utils.js";
 const assertBytes = abytes;
 export { assertBytes };
 export {
@@ -8,32 +8,32 @@ export {
   concatBytes,
   createView,
   utf8ToBytes,
-} from "@noble/hashes/utils";
+} from "@noble/hashes/utils.js";
 
-// buf.toString('utf8') -> bytesToUtf8(buf)
-export function bytesToUtf8(data: Uint8Array): string {
+/**
+ * Decode `data` as UTF-8.
+ *
+ * By default invalid UTF-8 byte sequences are replaced with `U+FFFD`,
+ * matching `Buffer.toString('utf8')` and the `TextDecoder` default. Pass
+ * `{ fatal: true }` to throw on invalid input — required when the decoded
+ * string is used for security-relevant comparison or hashing, since two
+ * distinct invalid byte sequences can otherwise decode to the same string
+ * and create hash collisions.
+ */
+export function bytesToUtf8(
+  data: Uint8Array,
+  opts: { fatal?: boolean } = {},
+): string {
   if (!(data instanceof Uint8Array)) {
     throw new TypeError(`bytesToUtf8 expected Uint8Array, got ${typeof data}`);
   }
-  return new TextDecoder().decode(data);
+  return new TextDecoder("utf-8", { fatal: opts.fatal === true }).decode(data);
 }
 
 export function hexToBytes(data: string): Uint8Array {
-  const sliced = data.startsWith("0x") ? data.substring(2) : data;
+  const sliced =
+    data.startsWith("0x") || data.startsWith("0X") ? data.substring(2) : data;
   return _hexToBytes(sliced);
-}
-
-// buf.equals(buf2) -> equalsBytes(buf, buf2)
-export function equalsBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 // Internal utils
@@ -44,15 +44,9 @@ export function wrapHash(hash: (msg: Uint8Array) => Uint8Array) {
   };
 }
 
-export const crypto: { node?: any; web?: Crypto } = (() => {
-  const webCrypto =
-    typeof self === "object" && "crypto" in self ? self.crypto : undefined;
-  const nodeRequire =
-    typeof module !== "undefined" &&
-    typeof module.require === "function" &&
-    module.require.bind(module);
-  return {
-    node: nodeRequire && !webCrypto ? nodeRequire("crypto") : undefined,
-    web: webCrypto,
-  };
-})();
+export const crypto: { web?: Crypto } = {
+  web:
+    typeof globalThis !== "undefined"
+      ? (globalThis as { crypto?: Crypto }).crypto
+      : undefined,
+};

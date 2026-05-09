@@ -3,14 +3,14 @@
     "target": "es2020",
     "module": "commonjs",
     "strict": true,
-    "downlevelIteration": true,
     "rootDirs": [
       "./src",
       "./test"
     ],
     "outDir": "./test-builds/tsc",
     "noUnusedLocals": true,
-    "declaration": true
+    "declaration": true,
+    "types": ["mocha", "node"]
   },
   "include": [
     "src/**/*.ts",
