@@ -21,7 +21,17 @@
       "import": "./dist/mjs/aes.js",
       "require": "./dist/cjs/aes.js"
     },
+    "./aes.js": {
+      "types": "./dist/mjs/aes.d.ts",
+      "import": "./dist/mjs/aes.js",
+      "require": "./dist/cjs/aes.js"
+    },
     "./argon2id": {
+      "types": "./dist/mjs/argon2id.d.ts",
+      "import": "./dist/mjs/argon2id.js",
+      "require": "./dist/cjs/argon2id.js"
+    },
+    "./argon2id.js": {
       "types": "./dist/mjs/argon2id.d.ts",
       "import": "./dist/mjs/argon2id.js",
       "require": "./dist/cjs/argon2id.js"
@@ -31,7 +41,17 @@
       "import": "./dist/mjs/keccak.js",
       "require": "./dist/cjs/keccak.js"
     },
+    "./keccak.js": {
+      "types": "./dist/mjs/keccak.d.ts",
+      "import": "./dist/mjs/keccak.js",
+      "require": "./dist/cjs/keccak.js"
+    },
     "./ml_dsa87": {
+      "types": "./dist/mjs/ml_dsa87.d.ts",
+      "import": "./dist/mjs/ml_dsa87.js",
+      "require": "./dist/cjs/ml_dsa87.js"
+    },
+    "./ml_dsa87.js": {
       "types": "./dist/mjs/ml_dsa87.d.ts",
       "import": "./dist/mjs/ml_dsa87.js",
       "require": "./dist/cjs/ml_dsa87.js"
@@ -41,7 +61,17 @@
       "import": "./dist/mjs/random.js",
       "require": "./dist/cjs/random.js"
     },
+    "./random.js": {
+      "types": "./dist/mjs/random.d.ts",
+      "import": "./dist/mjs/random.js",
+      "require": "./dist/cjs/random.js"
+    },
     "./utils": {
+      "types": "./dist/mjs/utils.d.ts",
+      "import": "./dist/mjs/utils.js",
+      "require": "./dist/cjs/utils.js"
+    },
+    "./utils.js": {
       "types": "./dist/mjs/utils.d.ts",
       "import": "./dist/mjs/utils.js",
       "require": "./dist/cjs/utils.js"
@@ -52,6 +82,22 @@
     "dist",
     "src"
   ],
+  "typesVersions": {
+    "*": {
+      "aes": ["./dist/mjs/aes.d.ts"],
+      "aes.js": ["./dist/mjs/aes.d.ts"],
+      "argon2id": ["./dist/mjs/argon2id.d.ts"],
+      "argon2id.js": ["./dist/mjs/argon2id.d.ts"],
+      "keccak": ["./dist/mjs/keccak.d.ts"],
+      "keccak.js": ["./dist/mjs/keccak.d.ts"],
+      "ml_dsa87": ["./dist/mjs/ml_dsa87.d.ts"],
+      "ml_dsa87.js": ["./dist/mjs/ml_dsa87.d.ts"],
+      "random": ["./dist/mjs/random.d.ts"],
+      "random.js": ["./dist/mjs/random.d.ts"],
+      "utils": ["./dist/mjs/utils.d.ts"],
+      "utils.js": ["./dist/mjs/utils.d.ts"]
+    }
+  },
   "engines": {
     "node": ">=20.19"
   },
