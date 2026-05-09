@@ -117,106 +117,75 @@ console.log(getRandomBytesSync(32));
 ## AES Encryption
 
 ```ts
-function encrypt(msg: Uint8Array, key: Uint8Array, iv: Uint8Array, mode = "aes-256-gcm", pkcs7PaddingEnabled = true): Promise<Uint8Array>;
-function decrypt(cypherText: Uint8Array, key: Uint8Array, iv: Uint8Array, mode = "aes-256-gcm", pkcs7PaddingEnabled = true): Promise<Uint8Array>;
+function encrypt(msg: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>;
+function decrypt(cypherText: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>;
 ```
 
-The `aes` submodule contains encryption and decryption functions implementing
-the [Advanced Encryption Standard](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
-algorithm.
+The `aes` submodule provides authenticated encryption with AES-256-GCM,
+delegated to the platform's WebCrypto implementation. The 32-byte `key` and
+12-byte `iv` are required; no other modes or key sizes are supported.
 
 ### Encrypting with passwords
 
 AES is not supposed to be used directly with a password. Doing that will
 compromise your users' security.
 
-The `key` parameters in this submodule are meant to be strong cryptographic
-keys. If you want to obtain such a key from a password, please use a
+The `key` parameter is meant to be a strong cryptographic key. If you want to
+derive one from a password, use a
 [key derivation function](https://en.wikipedia.org/wiki/Key_derivation_function)
 like [argon2id](#kdfs-argon2id).
 
-### Operation modes
-
-This submodule works with different [block cipher modes of operation](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation). If you are using this module in a new
-application, we recommend using the default.
-
-While this module may work with any mode supported by OpenSSL, we only test it
-with `aes-256-gcm`. If you use another module a warning will be printed in the
- console.
-
-We only recommend using `aes-256-gcm` to decrypt already encrypted data.
-
-### Padding plaintext messages
-
-Some operation modes require the plaintext message to be a multiple of `16`. If
-that isn't the case, your message has to be padded.
-
-By default, this module automatically pads your messages according to [PKCS#7](https://tools.ietf.org/html/rfc2315).
-Note that this padding scheme always adds at least 1 byte of padding. If you
-are unsure what anything of this means, we **strongly** recommend you to use
-the defaults.
-
-If you need to encrypt without padding or want to use another padding scheme,
-you can disable PKCS#7 padding by passing `false` as the last argument and
-handling padding yourself. Note that if you do this and your operation mode
-requires padding, `encrypt` will throw if your plaintext message isn't a
-multiple of `16`.
-
-This option is only present to enable the decryption of already encrypted data.
-To encrypt new data, we recommend using the default.
-
 ### How to use the IV parameter
 
-The `iv` parameter of the `encrypt` function must be unique, or the security
-of the encryption algorithm can be compromised.
+The `iv` parameter must be **unique per `(key, plaintext)` pair**. Reusing an
+IV with the same key destroys both confidentiality and authenticity in
+AES-GCM.
 
-You can generate a new `iv` using the `random` module.
-
-Note that to decrypt a value, you have to provide the same `iv` used to encrypt
-it.
+Generate a fresh 12-byte IV for every encryption with the `random` module.
+Store the IV alongside the ciphertext; you must supply the same IV to
+`decrypt`.
 
 ### How to handle errors with this module
 
 Sensitive information can be leaked via error messages when using this module.
-To avoid this, you should make sure that the errors you return don't
-contain the exact reason for the error. Instead, errors must report general
-encryption/decryption failures.
-
-Note that implementing this can mean catching all errors that can be thrown
-when calling on of this module's functions, and just throwing a new generic
-exception.
+Catch all errors thrown by `encrypt`/`decrypt` and re-raise them as a single
+generic "encryption failure" / "decryption failure" error in your application.
 
 ### Example usage
 
 ```js
-const { encrypt } = require("@theqrl/qrl-cryptography/aes");
-const { hexToBytes, utf8ToBytes } = require("@theqrl/qrl-cryptography/utils");
+const { encrypt, decrypt } = require("@theqrl/qrl-cryptography/aes");
+const { getRandomBytesSync } = require("@theqrl/qrl-cryptography/random");
+const { utf8ToBytes, bytesToUtf8 } = require("@theqrl/qrl-cryptography/utils");
 
-console.log(
-  encrypt(
-    utf8ToBytes("message"),
-    hexToBytes("2b7e151628aed2a6abf7158809cf4f3c"),
-    hexToBytes("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
-  )
-);
+const key = getRandomBytesSync(32); // 32 bytes for AES-256
+const iv = getRandomBytesSync(12);  // 12 bytes for GCM
+
+const ciphertext = await encrypt(utf8ToBytes("message"), key, iv);
+const plaintext = await decrypt(ciphertext, key, iv);
+console.log(bytesToUtf8(plaintext)); // "message"
 ```
 
 ## ML-DSA-87
 
 ```ts
-function keygen(seed: Uint8Array): { publicKey: Uint8Array; secretKey: Uint8Array };
-function sign(secretKey: Uint8Array, message: Uint8Array, ctx: Uint8Array): Uint8Array;
+function keygen(seed?: Uint8Array): { publicKey: Uint8Array; secretKey: Uint8Array };
+function sign(secretKey: Uint8Array, message: Uint8Array, ctx: Uint8Array, randomizedSigning?: boolean): Uint8Array;
 function verify(publicKey: Uint8Array, message: Uint8Array, signature: Uint8Array, ctx: Uint8Array): boolean;
 ```
 
 The `ml_dsa87` submodule provides the ML-DSA-87 (FIPS 204) post-quantum digital signature scheme, powered by [`@theqrl/mldsa87`](https://www.npmjs.com/package/@theqrl/mldsa87).
 
+`keygen` draws a fresh seed from the platform CSPRNG when none is supplied. Pass an explicit `seed` only when you need deterministic key derivation.
+
+`sign` is deterministic by default; pass `randomizedSigning: true` to use the hedged variant for additional side-channel resistance.
+
 ```js
 const { ml_dsa87 } = require("@theqrl/qrl-cryptography/ml_dsa87");
 const { utf8ToBytes } = require("@theqrl/qrl-cryptography/utils");
 
-// Generate a key pair
-const { publicKey, secretKey } = ml_dsa87.keygen(seed);
+// Generate a key pair (random seed)
+const { publicKey, secretKey } = ml_dsa87.keygen();
 
 // Sign a message
 const ctx = utf8ToBytes("context");

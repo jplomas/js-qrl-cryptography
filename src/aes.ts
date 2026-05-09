@@ -1,88 +1,69 @@
-import { crypto as cr } from "@noble/hashes/crypto";
-import { concatBytes } from "./utils";
+import { crypto } from "./utils.js";
 
-const crypto: any = { web: cr };
+const MODE = "AES-GCM";
+const KEY_LENGTH_BYTES = 32;
+const IV_LENGTH_BYTES = 12;
 
-function validateOpt(key: Uint8Array, iv: Uint8Array, mode: string) {
-  if (!mode.startsWith("aes-")) {
-    throw new Error(`AES submodule doesn't support mode ${mode}`);
+function validateOpt(key: Uint8Array, iv: Uint8Array) {
+  if (iv.length !== IV_LENGTH_BYTES) {
+    throw new Error(`AES: wrong IV length, expected ${IV_LENGTH_BYTES} bytes`);
   }
-  if (iv.length !== 12) {
-    throw new Error("AES: wrong IV length");
-  }
-  if (mode.startsWith("aes-256") && key.length !== 32) {
-    throw new Error("AES: wrong key length");
+  if (key.length !== KEY_LENGTH_BYTES) {
+    throw new Error(
+      `AES: wrong key length, expected ${KEY_LENGTH_BYTES} bytes`,
+    );
   }
 }
 
 async function getBrowserKey(
-  mode: string,
   key: Uint8Array,
   iv: Uint8Array,
 ): Promise<[CryptoKey, AesGcmParams]> {
   if (!crypto.web) {
     throw new Error("Browser crypto not available.");
   }
-  let keyMode: string | undefined;
-  if (["aes-256-gcm"].includes(mode)) {
-    keyMode = "gcm";
-  }
-  if (!keyMode) {
-    throw new Error("AES: unsupported mode");
-  }
   const wKey = await crypto.web.subtle.importKey(
     "raw",
-    key,
-    { name: `AES-${keyMode.toUpperCase()}`, length: key.length * 8 },
+    key as BufferSource,
+    { name: MODE, length: key.length * 8 },
     true,
     ["encrypt", "decrypt"],
   );
-  // TODO(rgeraldes24): missing fields
-  // node.js uses whole 128 bit as a counter, without nonce, instead of 64 bit
-  // recommended by NIST SP800-38A
-  return [wKey, { name: `aes-${keyMode}`, iv }];
+  return [wKey, { name: MODE, iv: iv as BufferSource, tagLength: 128 }];
 }
 
 export async function encrypt(
   msg: Uint8Array,
   key: Uint8Array,
   iv: Uint8Array,
-  mode = "aes-256-gcm",
-  pkcs7PaddingEnabled = true,
 ): Promise<Uint8Array> {
-  validateOpt(key, iv, mode);
-  if (crypto.web) {
-    const [wKey, wOpt] = await getBrowserKey(mode, key, iv);
-    const cipher = await crypto.web.subtle.encrypt(wOpt, wKey, msg);
-    let res = new Uint8Array(cipher);
-    return res;
-  } else if (crypto.node) {
-    const cipher = crypto.node.createCipheriv(mode, key, iv);
-    cipher.setAutoPadding(pkcs7PaddingEnabled);
-    return concatBytes(cipher.update(msg), cipher.final());
-  } else {
+  validateOpt(key, iv);
+  if (!crypto.web) {
     throw new Error("The environment doesn't have AES module");
   }
+  const [wKey, wOpt] = await getBrowserKey(key, iv);
+  const cipher = await crypto.web.subtle.encrypt(
+    wOpt,
+    wKey,
+    msg as BufferSource,
+  );
+  return new Uint8Array(cipher);
 }
 
 export async function decrypt(
   cypherText: Uint8Array,
   key: Uint8Array,
   iv: Uint8Array,
-  mode = "aes-256-gcm",
-  pkcs7PaddingEnabled = true,
 ): Promise<Uint8Array> {
-  validateOpt(key, iv, mode);
-  if (crypto.web) {
-    const [wKey, wOpt] = await getBrowserKey(mode, key, iv);
-    const msg = await crypto.web.subtle.decrypt(wOpt, wKey, cypherText);
-    const msgBytes = new Uint8Array(msg);
-    return msgBytes;
-  } else if (crypto.node) {
-    const decipher = crypto.node.createDecipheriv(mode, key, iv);
-    decipher.setAutoPadding(pkcs7PaddingEnabled);
-    return concatBytes(decipher.update(cypherText), decipher.final());
-  } else {
+  validateOpt(key, iv);
+  if (!crypto.web) {
     throw new Error("The environment doesn't have AES module");
   }
+  const [wKey, wOpt] = await getBrowserKey(key, iv);
+  const msg = await crypto.web.subtle.decrypt(
+    wOpt,
+    wKey,
+    cypherText as BufferSource,
+  );
+  return new Uint8Array(msg);
 }

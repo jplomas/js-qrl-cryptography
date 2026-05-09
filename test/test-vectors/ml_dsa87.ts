@@ -1,7 +1,7 @@
-import { ml_dsa87 } from "../../src/ml_dsa87";
-import { utf8ToBytes } from "@noble/hashes/utils";
-import { bytesToHex, hexToBytes } from "../../src/utils";
-import { deepStrictEqual } from "./assert";
+import { ml_dsa87 } from "../../src/ml_dsa87.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes } from "../../src/utils.js";
+import { deepStrictEqual } from "./assert.js";
 
 const TEST_VECTORS = [
   // Test vector taken from https://github.com/theQRL/go-qrllib/blob/main/wallet/ml_dsa_87/wallet_test.go#L25
@@ -50,4 +50,42 @@ describe("ML-DSA-87", () => {
       deepStrictEqual(ml_dsa87.verify(publicKey, msg, sig, ctx), true);
     });
   }
+
+  describe("verify rejects tampered inputs", () => {
+    const vector = TEST_VECTORS[0];
+    const seed = hexToBytes(vector.seed);
+    const msg = utf8ToBytes(vector.msg);
+    const ctx = utf8ToBytes(vector.ctx);
+
+    it("returns false when the signature is flipped", () => {
+      const { publicKey, secretKey } = ml_dsa87.keygen(seed);
+      const sig = ml_dsa87.sign(secretKey, msg, ctx);
+      sig[0] ^= 1;
+      deepStrictEqual(ml_dsa87.verify(publicKey, msg, sig, ctx), false);
+    });
+
+    it("returns false when the message is flipped", () => {
+      const { publicKey, secretKey } = ml_dsa87.keygen(seed);
+      const sig = ml_dsa87.sign(secretKey, msg, ctx);
+      const tampered = new Uint8Array(msg);
+      tampered[0] ^= 1;
+      deepStrictEqual(ml_dsa87.verify(publicKey, tampered, sig, ctx), false);
+    });
+
+    it("returns false when the context differs", () => {
+      const { publicKey, secretKey } = ml_dsa87.keygen(seed);
+      const sig = ml_dsa87.sign(secretKey, msg, ctx);
+      deepStrictEqual(
+        ml_dsa87.verify(publicKey, msg, sig, utf8ToBytes("different")),
+        false,
+      );
+    });
+
+    it("returns false when the public key does not match the secret key", () => {
+      const { secretKey } = ml_dsa87.keygen(seed);
+      const sig = ml_dsa87.sign(secretKey, msg, ctx);
+      const { publicKey: otherPk } = ml_dsa87.keygen();
+      deepStrictEqual(ml_dsa87.verify(otherPk, msg, sig, ctx), false);
+    });
+  });
 });
