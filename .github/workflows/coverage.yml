@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - name: Use Node.js 22.x
@@ -27,12 +27,14 @@ jobs:
         with:
           node-version: '22.x'
       - run: npm ci
+      # c8 check-coverage (package.json) makes this step itself the 100% gate.
       - run: npm run report-coverage
+      # Hard-gate the upload on push; fail-soft on PRs (forks lack the token).
       - name: Upload coverage to Codecov
-        if: github.repository == 'theQRL/js-qrl-cryptography' && github.event_name == 'push'
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        if: github.repository == 'theQRL/js-qrl-cryptography'
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
           flags: cryptography
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name == 'push' }}

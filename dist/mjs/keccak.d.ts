@@ -1,5 +1,5 @@
-import { Keccak } from "@noble/hashes/sha3.js";
-import type { Hash } from "@noble/hashes/utils.js";
+import { Keccak } from '@noble/hashes/sha3.js';
+import type { Hash } from '@noble/hashes/utils.js';
 interface K256 {
     (data: Uint8Array): Uint8Array;
     create(): Hash<Keccak>;

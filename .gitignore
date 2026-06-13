@@ -6,3 +6,4 @@
 /coverage.lcov
 /test-results
 /playwright-report
+/.idea

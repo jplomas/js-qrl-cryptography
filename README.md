@@ -75,8 +75,18 @@ const { utf8ToBytes } = require("@theqrl/qrl-cryptography/utils");
 keccak256(utf8ToBytes("abc"))
 
 // If you need hex
-const { bytesToHex as toHex } = require("@theqrl/qrl-cryptography/utils");
+const { bytesToHex: toHex } = require("@theqrl/qrl-cryptography/utils");
 toHex(keccak256(utf8ToBytes("abc")))
+```
+
+`keccak256` also exposes an incremental (streaming) interface via
+`keccak256.create()`, for hashing data that arrives in chunks:
+
+```js
+const hash = keccak256.create();
+hash.update(utf8ToBytes("ab"));
+hash.update(utf8ToBytes("c"));
+hash.digest(); // === keccak256(utf8ToBytes("abc"))
 ```
 
 ## KDFs: Argon2id
@@ -91,23 +101,36 @@ derivation algorithm in synchronous and asynchronous ways. This algorithm is
 very slow, and using the synchronous version in the browser is not recommended,
 as it will block its main thread and hang your UI.
 
+The `salt` must be at least 8 bytes (use **≥16 bytes**, fresh and random per
+password — see [SECURITY.md](./SECURITY.md)). Tune `t`/`m`/`p` for your
+environment; weak parameters produce weak hashes.
+
 ```js
 const { argon2id } = require("@theqrl/qrl-cryptography/argon2id");
+const { getRandomBytesSync } = require("@theqrl/qrl-cryptography/random");
 const { utf8ToBytes } = require("@theqrl/qrl-cryptography/utils");
-console.log(await argon2id(utf8ToBytes("password"), utf8ToBytes("salt"), 8, 262144, 1, 32));
+
+const salt = getRandomBytesSync(16); // fresh, random, ≥16 bytes — store it alongside the hash
+console.log(await argon2id(utf8ToBytes("password"), salt, 8, 262144, 1, 32));
 ```
 
 ## CSPRNG (Cryptographically strong pseudorandom number generator)
 
 ```ts
-function getRandomBytes(bytes: number): Promise<Uint8Array>;
 function getRandomBytesSync(bytes: number): Uint8Array;
 ```
 
-The `random` submodule has functions to generate cryptographically strong
-pseudo-random data in synchronous and asynchronous ways.
+The `random` submodule generates cryptographically strong pseudo-random
+data, backed by the platform WebCrypto
+[`crypto.getRandomValues`](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues)
+in both browsers and node.js. If no WebCrypto implementation is available
+the function throws — there is no insecure fallback.
 
-Backed by [`crypto.getRandomValues`](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues) in browser and by [`crypto.randomBytes`](https://nodejs.org/api/crypto.html#crypto_crypto_randombytes_size_callback) in node.js. If backends are somehow not available, the module would throw an error and won't work, as keeping them working would be insecure.
+Requests are chunked at the 64 KiB per-call WebCrypto quota, so any size up
+to 2³² − 1 bytes works. As an additional tripwire, requests of 16 bytes or
+more throw if the platform RNG returns all zeros (probability 2⁻¹²⁸ from a
+healthy RNG) — a canary for catastrophically broken platform RNGs, not an
+entropy meter.
 
 ```js
 const { getRandomBytesSync } = require("@theqrl/qrl-cryptography/random");
@@ -168,17 +191,33 @@ console.log(bytesToUtf8(plaintext)); // "message"
 
 ## ML-DSA-87
 
+The `ml_dsa87` submodule exports a single object whose methods are:
+
 ```ts
-function keygen(seed?: Uint8Array): { publicKey: Uint8Array; secretKey: Uint8Array };
-function sign(secretKey: Uint8Array, message: Uint8Array, ctx: Uint8Array, randomizedSigning?: boolean): Uint8Array;
-function verify(publicKey: Uint8Array, message: Uint8Array, signature: Uint8Array, ctx: Uint8Array): boolean;
+const ml_dsa87: {
+  keygen(seed?: Uint8Array): { publicKey: Uint8Array; secretKey: Uint8Array };
+  sign(secretKey: Uint8Array, message: Uint8Array, ctx: Uint8Array, randomizedSigning?: boolean): Uint8Array;
+  verify(publicKey: Uint8Array, message: Uint8Array, signature: Uint8Array, ctx: Uint8Array): boolean;
+};
 ```
 
-The `ml_dsa87` submodule provides the ML-DSA-87 (FIPS 204) post-quantum digital signature scheme, powered by [`@theqrl/mldsa87`](https://www.npmjs.com/package/@theqrl/mldsa87).
+Unlike the other submodules, the ML-DSA-87 functions are namespaced under the
+`ml_dsa87` object — call `ml_dsa87.keygen()`, not a bare `keygen()`.
 
-`keygen` draws a fresh seed from the platform CSPRNG when none is supplied. Pass an explicit `seed` only when you need deterministic key derivation.
+It provides the ML-DSA-87 (FIPS 204) post-quantum digital signature scheme, powered by [`@theqrl/mldsa87`](https://www.npmjs.com/package/@theqrl/mldsa87).
 
-`sign` is deterministic by default; pass `randomizedSigning: true` to use the hedged variant for additional side-channel resistance.
+`keygen` draws a fresh seed from the platform CSPRNG when none is supplied,
+and wipes that internal seed (best-effort) after key generation. Pass an
+explicit `seed` only when you need deterministic key derivation — a seed can
+regenerate the keypair, so treat it exactly like the secret key; when you
+supply one, you own its lifecycle (wipe it when done).
+
+`sign` is **hedged by default** (FIPS 204 §3.4): fresh CSPRNG randomness is
+mixed into each signature's nonce, so the same inputs produce different —
+all valid — signature bytes on every call. This frustrates fault-injection
+attacks against deterministic signing. Pass `randomizedSigning: false` only
+when byte-reproducible signatures are themselves the requirement (test
+vectors, deterministic fixtures).
 
 ```js
 const { ml_dsa87 } = require("@theqrl/qrl-cryptography/ml_dsa87");

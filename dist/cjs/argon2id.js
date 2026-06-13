@@ -1156,7 +1156,6 @@ async function argon2Async(type, password, salt, opts) {
  */
 const argon2idAsync = (password, salt, opts) => argon2Async(AT.Argon2id, password, salt, opts);
 
-// buf.toString('hex') -> toHex(buf)
 const assertBytes = abytes;
 
 async function argon2id(password, salt, t, m, p, dkLen, onProgress) {

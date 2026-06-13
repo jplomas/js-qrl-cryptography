@@ -1,4 +1,5 @@
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "Building tests with TypeScript"
 npx tsc --project tsconfig.json
@@ -10,4 +11,4 @@ echo "Building tests with webpack"
 npx webpack --mode development ./test-builds/tsc/test/test-vectors/*.js --output-path ./test-builds
 
 echo "Building tests with Rollup"
-rollup -c test/rollup.config.js
+npx rollup -c test/rollup.config.mjs

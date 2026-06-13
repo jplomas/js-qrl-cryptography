@@ -1,5 +1,5 @@
-import { argon2id as _sync, argon2idAsync as _async, } from "@noble/hashes/argon2.js";
-import { assertBytes } from "./utils.js";
+import { argon2id as _sync, argon2idAsync as _async } from '@noble/hashes/argon2.js';
+import { assertBytes } from './utils.js';
 export async function argon2id(password, salt, t, m, p, dkLen, onProgress) {
     assertBytes(password);
     assertBytes(salt);

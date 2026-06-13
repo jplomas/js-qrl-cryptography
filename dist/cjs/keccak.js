@@ -575,7 +575,6 @@ const keccak_384 = /* @__PURE__ */ genKeccak(0x01, 104, 48);
  */
 const keccak_512 = /* @__PURE__ */ genKeccak(0x01, 72, 64);
 
-// buf.toString('hex') -> toHex(buf)
 // Internal utils
 function wrapHash(hash) {
     return (msg) => {
@@ -585,11 +584,9 @@ function wrapHash(hash) {
 }
 
 const keccak224 = wrapHash(keccak_224);
-const keccak256 = (() => {
-    const k = wrapHash(keccak_256);
-    k.create = keccak_256.create;
-    return k;
-})();
+const keccak256 = Object.assign(wrapHash(keccak_256), {
+    create: () => keccak_256.create(),
+});
 const keccak384 = wrapHash(keccak_384);
 const keccak512 = wrapHash(keccak_512);
 

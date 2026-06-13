@@ -191,7 +191,6 @@ function concatBytes(...arrays) {
     return res;
 }
 
-// buf.toString('hex') -> toHex(buf)
 const assertBytes = abytes;
 /**
  * Decode `data` as UTF-8.
@@ -207,10 +206,10 @@ function bytesToUtf8(data, opts = {}) {
     if (!(data instanceof Uint8Array)) {
         throw new TypeError(`bytesToUtf8 expected Uint8Array, got ${typeof data}`);
     }
-    return new TextDecoder("utf-8", { fatal: opts.fatal === true }).decode(data);
+    return new TextDecoder('utf-8', { fatal: opts.fatal === true }).decode(data);
 }
 function hexToBytes(data) {
-    const sliced = data.startsWith("0x") || data.startsWith("0X") ? data.substring(2) : data;
+    const sliced = data.startsWith('0x') || data.startsWith('0X') ? data.substring(2) : data;
     return hexToBytes$1(sliced);
 }
 // Internal utils
@@ -220,11 +219,9 @@ function wrapHash(hash) {
         return hash(msg);
     };
 }
-const crypto = {
-    web: typeof globalThis !== "undefined"
-        ? globalThis.crypto
-        : undefined,
-};
+// Mutable on purpose: tests stub `crypto.web` to exercise the
+// no-WebCrypto error paths in aes.ts.
+const crypto = { web: globalThis.crypto };
 
 exports.assertBytes = assertBytes;
 exports.bytesToHex = bytesToHex;
