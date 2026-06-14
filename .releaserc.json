@@ -15,7 +15,8 @@
     }],
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
-      "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version --allow-same-version"
+      "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version --allow-same-version",
+      "publishCmd": "npm publish --access public"
     }],
     ["@semantic-release/git", {
       "assets": ["package.json", "package-lock.json", "CHANGELOG.md", "dist"],

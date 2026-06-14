@@ -1,9 +1,9 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig } from '@playwright/test';
 
 const port = 4173;
 
 export default defineConfig({
-  testDir: "./browser-tests",
+  testDir: './browser-tests',
   timeout: 600000,
   expect: {
     timeout: 600000,

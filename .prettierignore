@@ -1,0 +1,10 @@
+# Generated or vendored trees — never formatted
+node_modules
+dist
+test-builds
+coverage
+.parcel-cache
+playwright-report
+test-results
+package-lock.json
+CHANGELOG.md

@@ -1,13 +1,15 @@
+# Coverage ratchet (QRL House Coding Playbook §4.4): the 100% milestone was
+# reached 2026-06-13 and is locked in here and via c8 check-coverage in
+# package.json. Dropping below 100% is a maintainer decision expressed as an
+# explicit, reviewed change to these targets — never badge drift.
 coverage:
   status:
     project:
       default:
-        target: auto
-        threshold: 1%
+        target: 100%
     patch:
       default:
-        target: auto
-        threshold: 1%
+        target: 100%
 
 ignore:
   - "scripts/**/*"

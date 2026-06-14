@@ -1,7 +1,7 @@
-import { abytes } from "@noble/hashes/utils.js";
+import { abytes } from '@noble/hashes/utils.js';
 declare const assertBytes: typeof abytes;
 export { assertBytes };
-export { bytesToHex, bytesToHex as toHex, concatBytes, createView, utf8ToBytes, } from "@noble/hashes/utils.js";
+export { bytesToHex, bytesToHex as toHex, concatBytes, createView, utf8ToBytes } from '@noble/hashes/utils.js';
 /**
  * Decode `data` as UTF-8.
  *
