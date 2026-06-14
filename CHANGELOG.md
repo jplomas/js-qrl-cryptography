@@ -1,3 +1,9 @@
+## [0.1.4](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.3...v0.1.4) (2026-06-14)
+
+### Bug Fixes
+
+* hedged-default signing, mldsa87 2.1.3, hardened release/CI/docs ([9a11f22](https://github.com/theQRL/js-qrl-cryptography/commit/9a11f225c4cce984e3cfbb109669d3d247e01e38))
+
 ## [0.1.3](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.2...v0.1.3) (2026-05-09)
 
 ### Bug Fixes
