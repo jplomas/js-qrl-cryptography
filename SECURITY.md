@@ -32,8 +32,9 @@ Bugs in the underlying implementations should be reported upstream; this policy 
 
 ### AES-256-GCM (`aes`)
 
-- The IV (12 bytes) **must be unique per (key, plaintext) pair**. Reusing an IV with the same key destroys confidentiality and authenticity.
-- Callers must source IVs from a CSPRNG (e.g. `random.getRandomBytesSync`). The library does not generate them for you.
+- Prefer the misuse-resistant **`seal`/`open`** pair: `seal` draws a fresh 12-byte IV from the CSPRNG on every call and prepends it to the ciphertext, so the IV-reuse footgun below cannot be hit through that API. The raw `encrypt`/`decrypt` pair remains available for callers who must manage the IV themselves.
+- For the raw `encrypt`/`decrypt` pair, the IV (12 bytes) **must be unique per (key, plaintext) pair**. Reusing an IV with the same key destroys confidentiality and authenticity.
+- When using the raw pair, callers must source IVs from a CSPRNG (e.g. `random.getRandomBytesSync`). `seal` does this for you.
 - AES-GCM has a hard limit of ~2³² messages per key before nonce-collision probability becomes non-negligible — rotate keys for high-volume use.
 
 ### Argon2id (`argon2id`)
@@ -90,6 +91,8 @@ Publishing uses **npm trusted publishing** (OIDC): no long-lived npm token exist
 - **SLSA Level 3 provenance** (`slsa-framework/slsa-github-generator`) attached to the release as `provenance.intoto.jsonl`
 
 To verify a release, see the artefacts on the corresponding GitHub release page and use `gh attestation verify` or `slsa-verifier`.
+
+**Advisory gating.** CI gates releases on the shipped (runtime) dependency tree only (`npm audit --omit=dev`): a real advisory in code that reaches consumers blocks the build. Development- and build-only advisories carry no consumer-facing risk (nothing under `devDependencies` is published — `files` ships only `dist` and `src`), so they are tracked and remediated out of band by Dependabot (weekly version updates plus GitHub Dependabot security updates) rather than gating consumer-safe releases.
 
 ---
 

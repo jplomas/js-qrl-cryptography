@@ -55,6 +55,17 @@ const { ml_dsa87 } = require("@theqrl/qrl-cryptography/ml_dsa87");
 const { hexToBytes, toHex, utf8ToBytes } = require("@theqrl/qrl-cryptography/utils");
 ```
 
+### A note for CommonJS (`require`) consumers
+
+`@noble/hashes` is ESM-only, so the CommonJS build (`dist/cjs`) **vendors a
+frozen copy of it** to keep `require()` working. That copy does not appear in
+your `node_modules` tree, so your own `npm audit` cannot see it and an upstream
+`@noble/hashes` advisory reaches you only through a new
+`@theqrl/qrl-cryptography` release. ESM (`import`) consumers are unaffected —
+they resolve `@noble/hashes` through their own dependency tree as usual. See
+[SECURITY.md](./SECURITY.md#bundled-dependencies-cjs-build) for the version-pin
+and patch-playbook details.
+
 ## Hashes: keccak-256
 ```typescript
 function keccak256(msg: Uint8Array): Uint8Array;
@@ -140,13 +151,39 @@ console.log(getRandomBytesSync(32));
 ## AES Encryption
 
 ```ts
+// Misuse-resistant: generates a fresh IV internally (recommended).
+function seal(msg: Uint8Array, key: Uint8Array): Promise<Uint8Array>;
+function open(sealed: Uint8Array, key: Uint8Array): Promise<Uint8Array>;
+
+// Raw AEAD: you supply and manage the IV.
 function encrypt(msg: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>;
 function decrypt(cypherText: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>;
 ```
 
 The `aes` submodule provides authenticated encryption with AES-256-GCM,
-delegated to the platform's WebCrypto implementation. The 32-byte `key` and
-12-byte `iv` are required; no other modes or key sizes are supported.
+delegated to the platform's WebCrypto implementation. The 32-byte `key` is
+required; no other modes or key sizes are supported.
+
+Prefer **`seal`/`open`** unless you have a specific reason to manage the IV
+yourself. `seal` draws a fresh 12-byte IV from the CSPRNG on every call and
+prepends it to the ciphertext (returning `iv || ciphertext`); `open` reads
+that IV back off the front and decrypts. This removes the catastrophic
+IV-reuse footgun of the raw `encrypt`/`decrypt` pair, where a repeated
+`(key, iv)` destroys confidentiality and authenticity (see below).
+
+```js
+const { seal, open } = require("@theqrl/qrl-cryptography/aes");
+const { getRandomBytesSync } = require("@theqrl/qrl-cryptography/random");
+const { utf8ToBytes, bytesToUtf8 } = require("@theqrl/qrl-cryptography/utils");
+
+const key = getRandomBytesSync(32); // 32 bytes for AES-256
+const sealed = await seal(utf8ToBytes("message"), key); // iv is generated for you
+const plaintext = await open(sealed, key);
+console.log(bytesToUtf8(plaintext)); // "message"
+```
+
+The raw `encrypt`/`decrypt` pair below additionally require a caller-supplied
+12-byte `iv`.
 
 ### Encrypting with passwords
 

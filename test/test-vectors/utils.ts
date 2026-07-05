@@ -1,13 +1,5 @@
-import {
-  assertBytes,
-  bytesToHex,
-  bytesToUtf8,
-  concatBytes,
-  crypto,
-  hexToBytes,
-  toHex,
-  utf8ToBytes,
-} from '../../src/utils.js';
+import { assertBytes, bytesToHex, bytesToUtf8, concatBytes, hexToBytes, toHex, utf8ToBytes } from '../../src/utils.js';
+import { crypto } from '../../src/webcrypto.js';
 import { deepStrictEqual, throws } from './assert.js';
 
 describe('utils', () => {

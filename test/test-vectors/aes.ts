@@ -1,5 +1,6 @@
-import { decrypt, encrypt } from '../../src/aes.js';
-import { crypto, hexToBytes, toHex } from '../../src/utils.js';
+import { decrypt, encrypt, open, seal } from '../../src/aes.js';
+import { hexToBytes, toHex } from '../../src/utils.js';
+import { crypto } from '../../src/webcrypto.js';
 import { deepStrictEqual, rejects } from './assert.js';
 // Test vectors taken from https://github.com/paulmillr/noble-ciphers/blob/main/test/vectors/wycheproof/aes_gcm_test.json
 const TEST_VECTORS = [
@@ -110,6 +111,46 @@ describe('aes', () => {
 
     it('rejects decryption with the wrong IV', async () => {
       await rejects(() => decrypt(hexToBytes(vector.cypherText), key, hexToBytes(TEST_VECTORS[0].iv)));
+    });
+  });
+
+  // seal/open is the misuse-resistant convenience: it generates a fresh IV
+  // internally and prepends it to the ciphertext, removing the caller's
+  // opportunity to reuse a nonce.
+  describe('seal / open (self-contained IV)', () => {
+    const key = hexToBytes(TEST_VECTORS[0].key);
+    const msg = hexToBytes('be3308f72a2c6aed');
+
+    it('round-trips a message', async () => {
+      const sealed = await seal(msg, key);
+      const opened = await open(sealed, key);
+      deepStrictEqual(toHex(opened), toHex(msg));
+    });
+
+    it('prepends a 12-byte IV to the ciphertext', async () => {
+      const sealed = await seal(msg, key);
+      // 12-byte IV + ciphertext (msg length) + 16-byte GCM tag.
+      deepStrictEqual(sealed.length, 12 + msg.length + 16);
+    });
+
+    it('uses a fresh IV on every call', async () => {
+      const a = await seal(msg, key);
+      const b = await seal(msg, key);
+      deepStrictEqual(toHex(a) === toHex(b), false);
+    });
+
+    it('open rejects a non-Uint8Array sealed input', async () => {
+      await rejects(() => open('not bytes' as unknown as Uint8Array, key));
+    });
+
+    it('open rejects input too short to contain an IV and tag', async () => {
+      await rejects(() => open(new Uint8Array(27), key));
+    });
+
+    it('open rejects a tampered sealed blob (GCM authentication)', async () => {
+      const sealed = await seal(msg, key);
+      sealed[sealed.length - 1] ^= 1;
+      await rejects(() => open(sealed, key));
     });
   });
 

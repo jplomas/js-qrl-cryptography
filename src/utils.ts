@@ -32,7 +32,3 @@ export function wrapHash(hash: (msg: Uint8Array) => Uint8Array) {
     return hash(msg);
   };
 }
-
-// Mutable on purpose: tests stub `crypto.web` to exercise the
-// no-WebCrypto error paths in aes.ts.
-export const crypto: { web?: Crypto } = { web: globalThis.crypto };
