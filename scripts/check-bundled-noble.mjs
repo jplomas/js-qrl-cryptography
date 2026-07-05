@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 const PKG = '@noble/hashes';
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
 const pinned = pkg.dependencies[PKG];
-const latest = execFileSync('npm', ['view', PKG, 'version'], { encoding: 'utf8' }).trim();
+// timeout so a stalled registry lookup fails fast instead of hanging to the CI job limit.
+const latest = execFileSync('npm', ['view', PKG, 'version'], { encoding: 'utf8', timeout: 30_000 }).trim();
 
 function core(v) {
   return v.split('-')[0].split('.').map(Number);
