@@ -208,8 +208,9 @@ Store the IV alongside the ciphertext; you must supply the same IV to
 ### How to handle errors with this module
 
 Sensitive information can be leaked via error messages when using this module.
-Catch all errors thrown by `encrypt`/`decrypt` and re-raise them as a single
-generic "encryption failure" / "decryption failure" error in your application.
+Catch all errors thrown by `seal`/`open` (and the raw `encrypt`/`decrypt`) and
+re-raise them as a single generic "encryption failure" / "decryption failure"
+error in your application.
 
 ### Example usage
 
@@ -295,9 +296,9 @@ These can be used by setting your `plugins` array like this:
 
 ## License
 
-`qrl-cryptography` is released under The MIT License (MIT)
+`@theqrl/qrl-cryptography` is released under the MIT License.
 
 Copyright (c) 2021 Patricio Palladino, Paul Miller, ethereum-cryptography contributors
 Copyright (c) 2024 The QRL Contributors
 
-See [LICENSE](./LICENSE) file.
+See the [LICENSE](./LICENSE) file for the full text.
