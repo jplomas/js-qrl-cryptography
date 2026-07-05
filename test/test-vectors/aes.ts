@@ -175,5 +175,9 @@ describe('aes', () => {
     it('decrypt rejects when no WebCrypto is available', async () => {
       await rejects(() => decrypt(hexToBytes(TEST_VECTORS[0].cypherText), key, iv));
     });
+
+    it('seal rejects when no WebCrypto is available', async () => {
+      await rejects(() => seal(hexToBytes('abcd'), key));
+    });
   });
 });
