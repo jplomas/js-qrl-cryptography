@@ -1,4 +1,5 @@
 version: 2
+# CI gates only the runtime tree (npm audit --omit=dev); dev-tree advisories are tracked here.
 updates:
   # npm dependencies
   - package-ecosystem: "npm"

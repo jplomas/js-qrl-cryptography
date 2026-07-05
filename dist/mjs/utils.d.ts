@@ -17,6 +17,3 @@ export declare function bytesToUtf8(data: Uint8Array, opts?: {
 }): string;
 export declare function hexToBytes(data: string): Uint8Array;
 export declare function wrapHash(hash: (msg: Uint8Array) => Uint8Array): (msg: Uint8Array) => Uint8Array<ArrayBufferLike>;
-export declare const crypto: {
-    web?: Crypto;
-};

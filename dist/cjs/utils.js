@@ -219,16 +219,12 @@ function wrapHash(hash) {
         return hash(msg);
     };
 }
-// Mutable on purpose: tests stub `crypto.web` to exercise the
-// no-WebCrypto error paths in aes.ts.
-const crypto = { web: globalThis.crypto };
 
 exports.assertBytes = assertBytes;
 exports.bytesToHex = bytesToHex;
 exports.bytesToUtf8 = bytesToUtf8;
 exports.concatBytes = concatBytes;
 exports.createView = createView;
-exports.crypto = crypto;
 exports.hexToBytes = hexToBytes;
 exports.toHex = bytesToHex;
 exports.utf8ToBytes = utf8ToBytes;
