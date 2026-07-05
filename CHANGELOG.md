@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.4...v0.2.0) (2026-07-05)
+
+### Features
+
+* add AES seal/open, harden supply chain, bump deps ([3bd6612](https://github.com/theQRL/js-qrl-cryptography/commit/3bd6612d9e23819d1c97becf4e810a68e313eaaf))
+
 ## [0.1.4](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.3...v0.1.4) (2026-06-14)
 
 ### Bug Fixes

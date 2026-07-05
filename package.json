@@ -1,6 +1,6 @@
 {
   "name": "@theqrl/qrl-cryptography",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "All the cryptographic primitives used in QRL",
   "repository": {
     "type": "git",
