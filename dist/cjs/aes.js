@@ -136,7 +136,7 @@ function validateOpt(key, iv) {
     }
 }
 async function getWebCryptoKey(web, key, iv) {
-    const wKey = await web.subtle.importKey('raw', key, { name: MODE, length: KEY_LENGTH_BYTES * 8 }, 
+    const wKey = await web.subtle.importKey('raw', key, { name: MODE, length: KEY_LENGTH_BYTES * 8 },
     // The caller already holds the raw key bytes; never let the CryptoKey
     // be re-exported from WebCrypto on top of that.
     false, ['encrypt', 'decrypt']);

@@ -52,6 +52,10 @@ Conventional commits choreograph semantic-release: `fix:` → patch, `feat:` →
 
 ## Before you push
 
+Running `npm install` configures the repository's pre-commit hook. It rebuilds
+and verifies `dist/` using the same `npm run verify:dist` command as CI. If it
+fails, stage the regenerated files and commit again.
+
 ```bash
 npm run lint && npm test && npm run coverage && npm run build && git status   # dist must be clean or committed
 npm run test:packaging                                                        # packaging smoke

@@ -78,14 +78,8 @@ jobs:
         with:
           node-version: '22.x'
       - run: npm ci
-      - run: npm run build
       - name: Check for uncommitted dist changes
-        run: |
-          if [ -n "$(git diff --name-only dist/)" ]; then
-            echo "::error::dist/ files are out of date. Run 'npm run build' and commit the result."
-            git diff --stat dist/
-            exit 1
-          fi
+        run: npm run verify:dist
 
   packaging:
     name: Packaging smoke (tarball consumers)
