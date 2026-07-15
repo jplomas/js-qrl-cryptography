@@ -1,3 +1,5 @@
+## [0.3.0](https://github.com/theQRL/js-qrl-cryptography/compare/v0.2.0...v0.3.0) (2026-07-15)
+
 ## [0.2.0](https://github.com/theQRL/js-qrl-cryptography/compare/v0.1.4...v0.2.0) (2026-07-05)
 
 ### Features
