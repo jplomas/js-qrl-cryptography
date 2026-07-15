@@ -251,6 +251,23 @@ function createHasher(hashCons, info = {}) {
     Object.assign(hashC, info);
     return Object.freeze(hashC);
 }
+/**
+ * Creates OID metadata for NIST hashes with prefix `06 09 60 86 48 01 65 03 04 02`.
+ * @param suffix - final OID byte for the selected hash.
+ *   The helper accepts any byte even though only the documented NIST hash
+ *   suffixes are meaningful downstream.
+ * @returns Object containing the DER-encoded OID.
+ * @example
+ * Build OID metadata for a NIST hash.
+ * ```ts
+ * oidNist(0x01);
+ * ```
+ */
+const oidNist = (suffix) => ({
+    // Current NIST hashAlgs suffixes used here fit in one DER subidentifier octet.
+    // Larger suffix values would need base-128 OID encoding and a different length byte.
+    oid: Uint8Array.from([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, suffix]),
+});
 
 /**
  * SHA3 (keccak) hash function, based on a new "Sponge function" design.
@@ -574,6 +591,21 @@ const keccak_384 = /* @__PURE__ */ genKeccak(0x01, 104, 48);
  * ```
  */
 const keccak_512 = /* @__PURE__ */ genKeccak(0x01, 72, 64);
+const genShake = (suffix, blockLen, outputLen, info = {}) => createHasher((opts = {}) => new Keccak(blockLen, suffix, opts.dkLen === undefined ? outputLen : opts.dkLen, true), info);
+/**
+ * SHAKE256 XOF with 256-bit security and a 32-byte default output.
+ * @param msg - message bytes to hash
+ * @param opts - Optional output-length override. See {@link ShakeOpts}.
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with SHAKE256.
+ * ```ts
+ * shake256(new Uint8Array([97, 98, 99]), { dkLen: 64 });
+ * ```
+ */
+const shake256$1 =
+/* @__PURE__ */
+genShake(0x1f, 136, 32, /* @__PURE__ */ oidNist(0x0c));
 
 // Internal utils
 function wrapHash(hash) {
@@ -589,8 +621,10 @@ const keccak256 = Object.assign(wrapHash(keccak_256), {
 });
 const keccak384 = wrapHash(keccak_384);
 const keccak512 = wrapHash(keccak_512);
+const shake256 = shake256$1;
 
 exports.keccak224 = keccak224;
 exports.keccak256 = keccak256;
 exports.keccak384 = keccak384;
 exports.keccak512 = keccak512;
+exports.shake256 = shake256;
