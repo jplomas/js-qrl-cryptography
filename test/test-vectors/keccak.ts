@@ -114,5 +114,13 @@ describe('keccak', function () {
           'd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be'
       );
     });
+
+    it('supports the incremental streaming interface', function () {
+      const input = utf8ToBytes('abc');
+      const hash = shake256.create({ dkLen: 64 });
+      hash.update(input.subarray(0, 1));
+      hash.update(input.subarray(1));
+      deepStrictEqual(hash.digest(), shake256(input, { dkLen: 64 }));
+    });
   });
 });

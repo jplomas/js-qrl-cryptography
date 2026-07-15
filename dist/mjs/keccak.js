@@ -6,6 +6,4 @@ export const keccak256 = Object.assign(wrapHash(keccak_256), {
 });
 export const keccak384 = wrapHash(keccak_384);
 export const keccak512 = wrapHash(keccak_512);
-export function shake256(msg, opts) {
-    return nobleShake256(msg, opts);
-}
+export const shake256 = nobleShake256;

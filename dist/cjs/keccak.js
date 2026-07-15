@@ -621,9 +621,7 @@ const keccak256 = Object.assign(wrapHash(keccak_256), {
 });
 const keccak384 = wrapHash(keccak_384);
 const keccak512 = wrapHash(keccak_512);
-function shake256(msg, opts) {
-    return shake256$1(msg, opts);
-}
+const shake256 = shake256$1;
 
 exports.keccak224 = keccak224;
 exports.keccak256 = keccak256;

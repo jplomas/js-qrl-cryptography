@@ -6,7 +6,6 @@ import {
   keccak_512,
   shake256 as nobleShake256,
 } from '@noble/hashes/sha3.js';
-import type { ShakeOpts } from '@noble/hashes/sha3.js';
 import type { Hash } from '@noble/hashes/utils.js';
 import { wrapHash } from './utils.js';
 
@@ -23,6 +22,4 @@ export const keccak256: K256 = Object.assign(wrapHash(keccak_256), {
 export const keccak384 = wrapHash(keccak_384);
 export const keccak512 = wrapHash(keccak_512);
 
-export function shake256(msg: Uint8Array, opts?: ShakeOpts): Uint8Array {
-  return nobleShake256(msg, opts);
-}
+export const shake256 = nobleShake256;
