@@ -66,18 +66,20 @@ they resolve `@noble/hashes` through their own dependency tree as usual. See
 [SECURITY.md](./SECURITY.md#bundled-dependencies-cjs-build) for the version-pin
 and patch-playbook details.
 
-## Hashes: keccak-256
+## Hashes: Keccak and SHAKE256
 ```typescript
 function keccak256(msg: Uint8Array): Uint8Array;
+function shake256(msg: Uint8Array, opts?: { dkLen?: number }): Uint8Array;
 ```
 
 Exposes following cryptographic hash functions:
 
 - keccak-256 variant of SHA3 (also `keccak224`, `keccak384`,
 and `keccak512`)
+- SHAKE256 extendable-output function (32-byte output by default)
 
 ```js
-const { keccak256, keccak224, keccak384, keccak512 } = require("@theqrl/qrl-cryptography/keccak");
+const { keccak256, keccak224, keccak384, keccak512, shake256 } = require("@theqrl/qrl-cryptography/keccak");
 
 keccak256(Uint8Array.from([1, 2, 3]))
 
@@ -88,6 +90,9 @@ keccak256(utf8ToBytes("abc"))
 // If you need hex
 const { bytesToHex: toHex } = require("@theqrl/qrl-cryptography/utils");
 toHex(keccak256(utf8ToBytes("abc")))
+
+// Select the SHAKE256 output length in bytes
+shake256(utf8ToBytes("abc"), { dkLen: 64 })
 ```
 
 `keccak256` also exposes an incremental (streaming) interface via

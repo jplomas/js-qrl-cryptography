@@ -1,4 +1,4 @@
-import { keccak224, keccak256, keccak384, keccak512 } from '../../src/keccak.js';
+import { keccak224, keccak256, keccak384, keccak512, shake256 } from '../../src/keccak.js';
 import { hexToBytes, toHex, utf8ToBytes } from '../../src/utils.js';
 import { deepStrictEqual } from './assert.js';
 
@@ -97,5 +97,22 @@ describe('keccak', function () {
         deepStrictEqual(toHex(h.digest()), vector.output);
       });
     }
+  });
+
+  describe('shake256', function () {
+    it('returns the default 32-byte output', function () {
+      deepStrictEqual(
+        toHex(shake256(utf8ToBytes(''))),
+        '46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762f'
+      );
+    });
+
+    it('supports a caller-selected output length', function () {
+      deepStrictEqual(
+        toHex(shake256(utf8ToBytes(''), { dkLen: 64 })),
+        '46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762f' +
+          'd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be'
+      );
+    });
   });
 });

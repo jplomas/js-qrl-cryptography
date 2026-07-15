@@ -25,7 +25,7 @@ function run(cmd, args, opts = {}) {
 
 const CJS_SMOKE = `
 const assert = require("node:assert");
-const { keccak256 } = require("@theqrl/qrl-cryptography/keccak");
+const { keccak256, shake256 } = require("@theqrl/qrl-cryptography/keccak");
 const { getRandomBytesSync } = require("@theqrl/qrl-cryptography/random");
 const { argon2idSync } = require("@theqrl/qrl-cryptography/argon2id");
 const { ml_dsa87 } = require("@theqrl/qrl-cryptography/ml_dsa87");
@@ -45,6 +45,7 @@ assert.strictEqual(
   toHex(keccak256(utf8ToBytes("abc"))),
   "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
 );
+assert.strictEqual(shake256(utf8ToBytes("abc"), { dkLen: 64 }).length, 64);
 assert.strictEqual(getRandomBytesSync(70000).length, 70000);
 assert.strictEqual(
   argon2idSync(utf8ToBytes("p"), utf8ToBytes("somesalt"), 1, 256, 1, 16)
@@ -70,7 +71,7 @@ assert.strictEqual(
 
 const ESM_SMOKE = `
 import assert from "node:assert";
-import { keccak256 } from "@theqrl/qrl-cryptography/keccak";
+import { keccak256, shake256 } from "@theqrl/qrl-cryptography/keccak";
 import { getRandomBytesSync } from "@theqrl/qrl-cryptography/random";
 import { argon2idSync } from "@theqrl/qrl-cryptography/argon2id";
 import { ml_dsa87 } from "@theqrl/qrl-cryptography/ml_dsa87";
@@ -88,6 +89,7 @@ assert.strictEqual(
   toHex(keccak256(utf8ToBytes("abc"))),
   "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
 );
+assert.strictEqual(shake256(utf8ToBytes("abc"), { dkLen: 64 }).length, 64);
 assert.strictEqual(getRandomBytesSync(70000).length, 70000);
 assert.strictEqual(
   argon2idSync(utf8ToBytes("p"), utf8ToBytes("somesalt"), 1, 256, 1, 16).length,
@@ -106,7 +108,7 @@ console.log("esm smoke ok");
 `;
 
 const TS_CONSUMER = `
-import { keccak256, keccak512 } from "@theqrl/qrl-cryptography/keccak";
+import { keccak256, keccak512, shake256 } from "@theqrl/qrl-cryptography/keccak";
 import { ml_dsa87 } from "@theqrl/qrl-cryptography/ml_dsa87";
 import { encrypt, decrypt } from "@theqrl/qrl-cryptography/aes";
 import { argon2id, argon2idSync } from "@theqrl/qrl-cryptography/argon2id";
@@ -119,6 +121,7 @@ import {
 } from "@theqrl/qrl-cryptography/utils";
 
 const h: Uint8Array = keccak256(new Uint8Array([1]));
+const xof: Uint8Array = shake256(new Uint8Array([1]), { dkLen: 64 });
 const kp: { publicKey: Uint8Array; secretKey: Uint8Array } = ml_dsa87.keygen();
 const sig: Uint8Array = ml_dsa87.sign(kp.secretKey, h, new Uint8Array(0), false);
 const ok: boolean = ml_dsa87.verify(kp.publicKey, h, sig, new Uint8Array(0));
@@ -144,7 +147,7 @@ const dkAsync: Promise<Uint8Array> = argon2id(
   32,
 );
 const s: string = bytesToUtf8(utf8ToBytes("x"), { fatal: true });
-void [ok, ct, dk, dkAsync, s, decrypt, hexToBytes, toHex, keccak512];
+void [ok, ct, dk, dkAsync, s, decrypt, hexToBytes, toHex, keccak512, xof];
 `;
 
 try {
