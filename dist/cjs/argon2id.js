@@ -1,14 +1,10 @@
 'use strict';
 
-const U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
-const _32n = /* @__PURE__ */ BigInt(32);
-// Split bigint into two 32-bit halves. With `le=true`, returned fields become `{ h: low, l: high
-// }` to match little-endian word order rather than the property names.
-function fromBig(n, le = false) {
-    if (le)
-        return { h: Number(n & U32_MASK64), l: Number((n >> _32n) & U32_MASK64) };
-    return { h: Number((n >> _32n) & U32_MASK64) | 0, l: Number(n & U32_MASK64) | 0 };
-}
+// Split a JS number into u32 halves without a BigInt allocation. Exact only for integers
+// `0 <= n < 2**53`; callers use it on byte / bit counters, which JS length math caps far below
+// that (an ArrayBuffer cannot exceed 2**53 - 1 bytes).
+const fromNumH = (n) => (n / 2 ** 32) | 0;
+const fromNumL = (n) => n >>> 0;
 // High 32-bit half of a 64-bit right rotate, valid for `s` in `1..31`.
 const rotrSH = (h, l, s) => (h >>> s) | (l << (32 - s));
 // Low 32-bit half of a 64-bit right rotate, valid for `s` in `1..31`.
@@ -21,6 +17,8 @@ const rotrBL = (h, l, s) => (h >>> (s - 32)) | (l << (64 - s));
 const rotr32H = (_h, l) => l;
 // Low 32-bit half of a 64-bit right rotate for `s === 32`; this is just the swapped high half.
 const rotr32L = (h, _l) => h;
+// 64-bit left rotates (rotl*) are not defined here: sha3.ts, their only consumer, keeps
+// local copies so V8 inlines them into keccakP.
 // Add two split 64-bit words and return the split `{ h, l }` sum.
 // JS uses 32-bit signed integers for bitwise operations, so we cannot simply shift the carry out
 // of the low sum and instead use division.
@@ -55,10 +53,14 @@ function isBytes(a) {
             'BYTES_PER_ELEMENT' in a &&
             a.BYTES_PER_ELEMENT === 1));
 }
+// Shared error-message prefix builder. Only called on throw paths, so assert
+// success paths never pay for the string concatenation.
+const atitle = (title) => (title ? `"${title}" ` : '');
 /**
  * Asserts something is a non-negative integer.
  * @param n - number to validate
  * @param title - label included in thrown errors
+ * @returns The validated number.
  * @throws On wrong argument types. {@link TypeError}
  * @throws On wrong argument ranges or values. {@link RangeError}
  * @example
@@ -68,14 +70,11 @@ function isBytes(a) {
  * ```
  */
 function anumber(n, title = '') {
-    if (typeof n !== 'number') {
-        const prefix = title && `"${title}" `;
-        throw new TypeError(`${prefix}expected number, got ${typeof n}`);
-    }
-    if (!Number.isSafeInteger(n) || n < 0) {
-        const prefix = title && `"${title}" `;
-        throw new RangeError(`${prefix}expected integer >= 0, got ${n}`);
-    }
+    if (typeof n !== 'number')
+        throw new TypeError(atitle(title) + 'expected number, got ' + typeof n);
+    if (!Number.isSafeInteger(n) || n < 0)
+        throw new RangeError(atitle(title) + 'expected integer >= 0, got ' + n);
+    return n;
 }
 /**
  * Asserts something is Uint8Array.
@@ -92,20 +91,42 @@ function anumber(n, title = '') {
  * ```
  */
 function abytes(value, length, title = '') {
+    // Success path first: this runs at the start of every update() / digestInto(), and the
+    // common `abytes(data)` form must not pay for length handling it does not use.
+    if (isBytes(value) && (length === undefined || value.length === length))
+        return value;
+    // Error path: recompute freely to build the exact message.
+    if (length !== undefined)
+        anumber(length, 'length');
     const bytes = isBytes(value);
-    const len = value?.length;
-    const needsLen = length !== undefined;
-    if (!bytes || (needsLen && len !== length)) {
-        const prefix = title && `"${title}" `;
-        const ofLen = needsLen ? ` of length ${length}` : '';
-        const got = bytes ? `length=${len}` : `type=${typeof value}`;
-        const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
-        if (!bytes)
-            throw new TypeError(message);
-        throw new RangeError(message);
-    }
-    return value;
+    const ofLen = length !== undefined ? ` of length ${length}` : '';
+    const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+    const message = atitle(title) + 'expected Uint8Array' + ofLen + ', got ' + got;
+    if (!bytes)
+        throw new TypeError(message);
+    throw new RangeError(message);
 }
+/**
+ * Copies bytes into a fresh Uint8Array.
+ * Buffer-style slices can alias the same backing store, so callers that need ownership should copy.
+ * @param bytes - source bytes to clone
+ * @returns Freshly allocated copy of `bytes`.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Clone a byte array before mutating it.
+ * ```ts
+ * const copy = copyBytes(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function copyBytes(bytes) {
+    // `Uint8Array.from(...)` would also accept arrays / other typed arrays. Keep this helper strict
+    // because callers use it at byte-validation boundaries before mutating the detached copy.
+    return Uint8Array.from(abytes(bytes));
+}
+const aobject = (value, label) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+        throw new TypeError((label === 'object' ? '' : `"${label}" `) + 'expected object, got type=' + typeof value);
+};
 /**
  * Asserts a hash instance has not been destroyed or finished.
  * @param instance - hash instance to validate
@@ -121,10 +142,12 @@ function abytes(value, length, title = '') {
  * ```
  */
 function aexists(instance, checkFinished = true) {
+    // Runs on every update()/digestInto(); the flags are library-owned booleans, so only their
+    // truthiness is checked - re-validating their type per call was pure hot-path overhead.
     if (instance.destroyed)
-        throw new Error('Hash instance has been destroyed');
+        throw new Error('hash was destroyed');
     if (checkFinished && instance.finished)
-        throw new Error('Hash#digest() has already been called');
+        throw new Error('digest() was already called');
 }
 /**
  * Asserts output is a sufficiently-sized byte array.
@@ -143,10 +166,12 @@ function aexists(instance, checkFinished = true) {
  * ```
  */
 function aoutput(out, instance) {
-    abytes(out, undefined, 'digestInto() output');
+    abytes(out, undefined, 'output');
+    // `outputLen` is a library-owned readonly number; the negated comparison keeps failing fast
+    // when it is missing/NaN (comparisons with undefined/NaN are false) without an anumber() call.
     const min = instance.outputLen;
-    if (out.length < min) {
-        throw new RangeError('"digestInto() output" expected to be of length >=' + min);
+    if (!(out.length >= min)) {
+        throw new RangeError('"output" expected length >= ' + min);
     }
 }
 /**
@@ -300,6 +325,26 @@ function kdfInputToBytes(data, errorTitle = '') {
     return abytes(data, undefined, errorTitle);
 }
 /**
+ * Merges default options and passed options.
+ * @param defaults - base option object
+ * @param opts - user overrides
+ * @param title - label included in thrown override errors
+ * @returns Merged option object. The merge mutates `defaults` in place.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Merge user overrides onto default options.
+ * ```ts
+ * checkOpts({ dkLen: 32 }, { asyncTick: 10 });
+ * ```
+ */
+function checkOpts(defaults, opts, title = 'opts') {
+    aobject(defaults, 'defaults');
+    if (opts !== undefined)
+        aobject(opts, title);
+    const merged = Object.assign(defaults, opts);
+    return merged;
+}
+/**
  * Creates a callable hash function from a stateful class constructor.
  * @param hashCons - hash constructor or factory
  * @param info - optional metadata such as DER OID
@@ -307,6 +352,7 @@ function kdfInputToBytes(data, errorTitle = '') {
  *   Wrapper construction eagerly calls `hashCons(undefined)` once to read
  *   `outputLen` / `blockLen`, so constructor side effects happen at module
  *   init time.
+ * @throws On wrong argument types. {@link TypeError}
  * @example
  * Wrap a stateful hash constructor into a callable helper.
  * ```ts
@@ -317,6 +363,9 @@ function kdfInputToBytes(data, errorTitle = '') {
  * ```
  */
 function createHasher(hashCons, info = {}) {
+    if (typeof hashCons !== 'function')
+        throw new TypeError('"hashCons" expected function, got type=' + typeof hashCons);
+    info = checkOpts({}, info, 'info');
     const hashC = (msg, opts) => hashCons(opts)
         .update(msg)
         .digest();
@@ -333,6 +382,9 @@ function createHasher(hashCons, info = {}) {
  * Internal helpers for blake hash.
  * @module
  */
+// Unrealized speed-up: a file-local copy of rotr measured ~1-2% faster blake2s/blake256/blake3
+// on Node 24 (V8 does not inline it into G1s/G2s across the module boundary). Reused from
+// utils for deduplication.
 /**
  * Internal blake permutation table.
  * Rows `0..9` serve BLAKE2s, rows `0..11` serve BLAKE2b with `10..11 = 0..1`, and Blake1 also
@@ -382,21 +434,28 @@ function G1b(a, b, c, d, msg, x) {
     let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1]; // prettier-ignore
     let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1]; // prettier-ignore
     // v[a] = (v[a] + v[b] + x) | 0;
-    let ll = add3L(Al, Bl, Xl);
+    const ll = add3L(Al, Bl, Xl);
     Ah = add3H(ll, Ah, Bh, Xh);
     Al = ll | 0;
     // v[d] = rotr(v[d] ^ v[a], 32)
-    ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: rotr32H(Dh, Dl), Dl: rotr32L(Dh) });
+    let xh = Dh ^ Ah, xl = Dl ^ Al; // prettier-ignore
+    Dh = rotr32H(xh, xl);
+    Dl = rotr32L(xh);
     // v[c] = (v[c] + v[d]) | 0;
     ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
     // v[b] = rotr(v[b] ^ v[c], 24)
-    ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: rotrSH(Bh, Bl, 24), Bl: rotrSL(Bh, Bl, 24) });
-    ((BBUF[2 * a] = Al), (BBUF[2 * a + 1] = Ah));
-    ((BBUF[2 * b] = Bl), (BBUF[2 * b + 1] = Bh));
-    ((BBUF[2 * c] = Cl), (BBUF[2 * c + 1] = Ch));
-    ((BBUF[2 * d] = Dl), (BBUF[2 * d + 1] = Dh));
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl;
+    Bh = rotrSH(xh, xl, 24);
+    Bl = rotrSL(xh, xl, 24);
+    BBUF[2 * a] = Al;
+    BBUF[2 * a + 1] = Ah;
+    BBUF[2 * b] = Bl;
+    BBUF[2 * b + 1] = Bh;
+    BBUF[2 * c] = Cl;
+    BBUF[2 * c + 1] = Ch;
+    BBUF[2 * d] = Dl;
+    BBUF[2 * d + 1] = Dh;
 }
 // Second half-round of the same LE-limb BLAKE2b G mix; `x` is the message word offset.
 function G2b(a, b, c, d, msg, x) {
@@ -407,27 +466,35 @@ function G2b(a, b, c, d, msg, x) {
     let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1]; // prettier-ignore
     let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1]; // prettier-ignore
     // v[a] = (v[a] + v[b] + x) | 0;
-    let ll = add3L(Al, Bl, Xl);
+    const ll = add3L(Al, Bl, Xl);
     Ah = add3H(ll, Ah, Bh, Xh);
     Al = ll | 0;
     // v[d] = rotr(v[d] ^ v[a], 16)
-    ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: rotrSH(Dh, Dl, 16), Dl: rotrSL(Dh, Dl, 16) });
+    let xh = Dh ^ Ah, xl = Dl ^ Al; // prettier-ignore
+    Dh = rotrSH(xh, xl, 16);
+    Dl = rotrSL(xh, xl, 16);
     // v[c] = (v[c] + v[d]) | 0;
     ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
     // v[b] = rotr(v[b] ^ v[c], 63)
-    ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: rotrBH(Bh, Bl, 63), Bl: rotrBL(Bh, Bl, 63) });
-    ((BBUF[2 * a] = Al), (BBUF[2 * a + 1] = Ah));
-    ((BBUF[2 * b] = Bl), (BBUF[2 * b + 1] = Bh));
-    ((BBUF[2 * c] = Cl), (BBUF[2 * c + 1] = Ch));
-    ((BBUF[2 * d] = Dl), (BBUF[2 * d + 1] = Dh));
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl;
+    Bh = rotrBH(xh, xl, 63);
+    Bl = rotrBL(xh, xl, 63);
+    BBUF[2 * a] = Al;
+    BBUF[2 * a + 1] = Ah;
+    BBUF[2 * b] = Bl;
+    BBUF[2 * b + 1] = Bh;
+    BBUF[2 * c] = Cl;
+    BBUF[2 * c + 1] = Ch;
+    BBUF[2 * d] = Dl;
+    BBUF[2 * d + 1] = Dh;
 }
 function checkBlake2Opts(outputLen, opts = {}, keyLen, saltLen, persLen) {
     anumber(keyLen);
-    // RFC 7693 §2.1 requires digest length nn in 1..keyLen.
+    // RFC 7693 §2.1 requires digest length nn in 1..keyLen (keyLen doubles as
+    // the per-variant max for both key and digest lengths: 64 for b, 32 for s).
     if (outputLen <= 0 || outputLen > keyLen)
-        throw new Error('outputLen bigger than keyLen');
+        throw new Error('"dkLen" must be 1..' + keyLen + ', got ' + outputLen);
     const { key, salt, personalization } = opts;
     // This API uses `undefined` for the RFC 7693 `kk = 0` case, so a provided key must be non-empty.
     if (key !== undefined && (key.length < 1 || key.length > keyLen))
@@ -488,7 +555,9 @@ class _BLAKE2 {
                 swap32IfBE(data32);
                 continue;
             }
-            buffer.set(data.subarray(pos, pos + take), this.pos);
+            // When the whole input is buffered in one go (common for short messages), passing `data`
+            // directly avoids allocating a subarray view.
+            buffer.set(pos === 0 && take === len ? data : data.subarray(pos, pos + take), this.pos);
             this.pos += take;
             this.length += take;
             pos += take;
@@ -498,18 +567,19 @@ class _BLAKE2 {
     digestInto(out) {
         aexists(this);
         aoutput(out, this);
+        // Reject unaligned views explicitly instead of hiding them behind a full scratch copy.
+        if (out.byteOffset & 3)
+            throw new RangeError('"output" expected 4-byte aligned byteOffset, got ' + out.byteOffset);
         const { pos, buffer32 } = this;
         this.finished = true;
         // Padding
-        clean(this.buffer.subarray(pos));
+        this.buffer.fill(0, pos);
         swap32IfBE(buffer32);
         this.compress(buffer32, 0, true);
         swap32IfBE(buffer32);
-        // Reject unaligned views explicitly instead of hiding them behind a full scratch copy.
-        if (out.byteOffset & 3)
-            throw new RangeError('"digestInto() output" expected 4-byte aligned byteOffset, got ' + out.byteOffset);
         const state = this.get();
-        const out32 = u32(out);
+        // digest() passes our own `buffer` as `out`; reuse its cached u32 view instead of allocating.
+        const out32 = out === this.buffer ? buffer32 : u32(out);
         const full = Math.floor(this.outputLen / 4);
         for (let i = 0; i < full; i++)
             out32[i] = swap8IfBE(state[i]);
@@ -534,6 +604,7 @@ class _BLAKE2 {
         // Recreate only `dkLen`; key/salt/personalization are already absorbed into the copied state.
         to ||= new this.constructor({ dkLen: outputLen });
         to.set(...this.get());
+        // Last-block-aware lazy compression keeps the pending block live even when full.
         to.buffer.set(buffer);
         to.destroyed = destroyed;
         to.finished = finished;
@@ -567,6 +638,7 @@ class _BLAKE2b extends _BLAKE2 {
     v7l = B2B_IV[14] | 0;
     v7h = B2B_IV[15] | 0;
     constructor(opts = {}) {
+        opts = checkOpts({}, opts);
         const olen = opts.dkLen === undefined ? 64 : opts.dkLen;
         super(128, olen);
         checkBlake2Opts(olen, opts, 64, 16, 16);
@@ -581,7 +653,8 @@ class _BLAKE2b extends _BLAKE2 {
         this.v0l ^= this.outputLen | (keyLength << 8) | (0x01 << 16) | (0x01 << 24);
         if (salt !== undefined) {
             abytes(salt, undefined, 'salt');
-            const slt = u32(salt);
+            // Copy: u32() would throw on views with byteOffset not divisible by 4.
+            const slt = u32(copyBytes(salt));
             this.v4l ^= swap8IfBE(slt[0]);
             this.v4h ^= swap8IfBE(slt[1]);
             this.v5l ^= swap8IfBE(slt[2]);
@@ -589,7 +662,8 @@ class _BLAKE2b extends _BLAKE2 {
         }
         if (personalization !== undefined) {
             abytes(personalization, undefined, 'personalization');
-            const pers = u32(personalization);
+            // Copy: u32() would throw on views with byteOffset not divisible by 4.
+            const pers = u32(copyBytes(personalization));
             this.v6l ^= swap8IfBE(pers[0]);
             this.v6h ^= swap8IfBE(pers[1]);
             this.v7l ^= swap8IfBE(pers[2]);
@@ -600,6 +674,8 @@ class _BLAKE2b extends _BLAKE2 {
             const tmp = new Uint8Array(this.blockLen);
             tmp.set(key);
             this.update(tmp);
+            // The padded copy holds key material; buffer/state keep what they need.
+            clean(tmp);
         }
     }
     // prettier-ignore
@@ -627,9 +703,32 @@ class _BLAKE2b extends _BLAKE2 {
         this.v7h = v7h | 0;
     }
     compress(msg, offset, isLast) {
-        this.get().forEach((v, i) => (BBUF[i] = v)); // First half from state.
+        // First half from state. Direct writes: get() would allocate an array +
+        // closure per block.
+        // prettier-ignore
+        const { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
+        // prettier-ignore
+        {
+            BBUF[0] = v0l;
+            BBUF[1] = v0h;
+            BBUF[2] = v1l;
+            BBUF[3] = v1h;
+            BBUF[4] = v2l;
+            BBUF[5] = v2h;
+            BBUF[6] = v3l;
+            BBUF[7] = v3h;
+            BBUF[8] = v4l;
+            BBUF[9] = v4h;
+            BBUF[10] = v5l;
+            BBUF[11] = v5h;
+            BBUF[12] = v6l;
+            BBUF[13] = v6h;
+            BBUF[14] = v7l;
+            BBUF[15] = v7h;
+        }
         BBUF.set(B2B_IV, 16); // Second half from IV.
-        let { h, l } = fromBig(BigInt(this.length));
+        const l = fromNumL(this.length);
+        const h = fromNumH(this.length);
         BBUF[24] = B2B_IV[8] ^ l; // Low word of the offset.
         BBUF[25] = B2B_IV[9] ^ h; // High word.
         // Invert all bits for last block
@@ -695,6 +794,16 @@ class _BLAKE2b extends _BLAKE2 {
  * ```ts
  * blake2b(new Uint8Array([97, 98, 99]));
  * ```
+ * @example
+ * Hash a message with Blake2b while selecting output, MAC, salt, and personalization settings.
+ * ```ts
+ * blake2b(new Uint8Array([97, 98, 99]), {
+ *   dkLen: 32,
+ *   key: new Uint8Array(32),
+ *   salt: new Uint8Array(16),
+ *   personalization: new Uint8Array(16),
+ * });
+ * ```
  */
 const blake2b = /* @__PURE__ */ createHasher((opts) => new _BLAKE2b(opts));
 
@@ -710,7 +819,7 @@ const blake2b = /* @__PURE__ */ createHasher((opts) => new _BLAKE2b(opts));
  */
 // RFC 9106 §3.1 type `y`: 0 = Argon2d, 1 = Argon2i, 2 = Argon2id. The numeric values are the
 // spec-bound part here; the object keys are internal labels.
-const AT = { Argond2d: 0, Argon2i: 1, Argon2id: 2 };
+const AT = { Argon2d: 0, Argon2i: 1, Argon2id: 2 };
 // RFC 9106 sync points constant `SL = 4`, fixed by the design rather than exposed as a tuning knob.
 const ARGON2_SYNC_POINTS = 4;
 // Preserve Argon2's `LE32(len(X)) || X` encoding for omitted
@@ -736,42 +845,69 @@ function mul(a, b) {
     const low = (carry << 16) | (ll & 0xffff);
     return { h: high, l: low };
 }
-function mul2(a, b) {
-    // Double the split 64-bit product; carry from `l` is folded back into `h` via `l >>> 31`.
-    const { h, l } = mul(a, b);
-    return { h: ((h << 1) | (l >>> 31)) & 0xffff_ffff, l: (l << 1) & 0xffff_ffff };
-}
-// BlaMka permutation for Argon2
-// `A + B + 2 * trunc(A) * trunc(B)`, where `trunc(...)` means the low 32-bit halves.
-function blamka(Ah, Al, Bh, Bl) {
-    const { h: Ch, l: Cl } = mul2(Al, Bl);
-    // A + B + (2 * A * B)
-    const Rll = add3L(Al, Bl, Cl);
-    return { h: add3H(Rll, Ah, Bh, Ch), l: Rll | 0 };
+// High 32 bits of unsigned u32 multiply, via the same 16-bit limb split as `mul` below.
+// Kept single-purpose and number-returning so V8 inlines it (object-returning
+// helpers here cost 2.2x of the whole derivation, measured; small helpers
+// returning one number are free — see rotr* usage everywhere).
+function mulHi(a, b) {
+    const aL = a & 0xffff, aH = a >>> 16, bL = b & 0xffff, bH = b >>> 16; // prettier-ignore
+    const carry = (Math.imul(aL, bL) >>> 16) + (Math.imul(aH, bL) & 0xffff) + Math.imul(aL, bH);
+    return (Math.imul(aH, bH) + (Math.imul(aH, bL) >>> 16) + (carry >>> 16)) | 0;
 }
 // Temporary block buffer.
 // 1024-byte block: 256 u32 = 128 interleaved low/high halves = RFC's
 // 8x8 matrix of 16-byte registers.
 const A2_BUF = new Uint32Array(256);
 // Quarter-round over 64-bit word indices into `A2_BUF`; each index maps to adjacent low/high u32s.
+// Each BlaMka step `X = X + Y + 2 * trunc(X) * trunc(Y)` (trunc = low 32 bits) is three lines:
+// `Math.imul` is the low product half, `mulHi` the high half, then a split 64-bit add with the
+// doubling folded in. RFC 9106 Figure 19 GB rotates by 32, 24, 16, and 63 bits after each XOR.
 function G(a, b, c, d) {
     let Al = A2_BUF[2 * a], Ah = A2_BUF[2 * a + 1]; // prettier-ignore
     let Bl = A2_BUF[2 * b], Bh = A2_BUF[2 * b + 1]; // prettier-ignore
     let Cl = A2_BUF[2 * c], Ch = A2_BUF[2 * c + 1]; // prettier-ignore
     let Dl = A2_BUF[2 * d], Dh = A2_BUF[2 * d + 1]; // prettier-ignore
-    // RFC 9106 Figure 19 GB rotates by 32, 24, 16, and 63 bits after each XOR step.
-    ({ h: Ah, l: Al } = blamka(Ah, Al, Bh, Bl));
-    ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: rotr32H(Dh, Dl), Dl: rotr32L(Dh) });
-    ({ h: Ch, l: Cl } = blamka(Ch, Cl, Dh, Dl));
-    ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: rotrSH(Bh, Bl, 24), Bl: rotrSL(Bh, Bl, 24) });
-    ({ h: Ah, l: Al } = blamka(Ah, Al, Bh, Bl));
-    ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: rotrSH(Dh, Dl, 16), Dl: rotrSL(Dh, Dl, 16) });
-    ({ h: Ch, l: Cl } = blamka(Ch, Cl, Dh, Dl));
-    ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: rotrBH(Bh, Bl, 63), Bl: rotrBL(Bh, Bl, 63) });
+    let ml = 0, mh = 0, rl = 0, xh = 0, xl = 0; // prettier-ignore
+    // A = blamka(A, B); D = rotr64(D ^ A, 32)
+    ml = Math.imul(Al, Bl);
+    mh = mulHi(Al, Bl); // prettier-ignore
+    rl = (Al >>> 0) + (Bl >>> 0) + ((ml << 1) >>> 0);
+    Ah = (Ah + Bh + ((mh << 1) | (ml >>> 31)) + ((rl / 0x100000000) | 0)) | 0;
+    Al = rl | 0; // prettier-ignore
+    xh = Dh ^ Ah;
+    xl = Dl ^ Al; // prettier-ignore
+    Dh = rotr32H(xh, xl);
+    Dl = rotr32L(xh); // prettier-ignore
+    // C = blamka(C, D); B = rotr64(B ^ C, 24)
+    ml = Math.imul(Cl, Dl);
+    mh = mulHi(Cl, Dl); // prettier-ignore
+    rl = (Cl >>> 0) + (Dl >>> 0) + ((ml << 1) >>> 0);
+    Ch = (Ch + Dh + ((mh << 1) | (ml >>> 31)) + ((rl / 0x100000000) | 0)) | 0;
+    Cl = rl | 0; // prettier-ignore
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl; // prettier-ignore
+    Bh = rotrSH(xh, xl, 24);
+    Bl = rotrSL(xh, xl, 24); // prettier-ignore
+    // A = blamka(A, B); D = rotr64(D ^ A, 16)
+    ml = Math.imul(Al, Bl);
+    mh = mulHi(Al, Bl); // prettier-ignore
+    rl = (Al >>> 0) + (Bl >>> 0) + ((ml << 1) >>> 0);
+    Ah = (Ah + Bh + ((mh << 1) | (ml >>> 31)) + ((rl / 0x100000000) | 0)) | 0;
+    Al = rl | 0; // prettier-ignore
+    xh = Dh ^ Ah;
+    xl = Dl ^ Al; // prettier-ignore
+    Dh = rotrSH(xh, xl, 16);
+    Dl = rotrSL(xh, xl, 16); // prettier-ignore
+    // C = blamka(C, D); B = rotr64(B ^ C, 63)
+    ml = Math.imul(Cl, Dl);
+    mh = mulHi(Cl, Dl); // prettier-ignore
+    rl = (Cl >>> 0) + (Dl >>> 0) + ((ml << 1) >>> 0);
+    Ch = (Ch + Dh + ((mh << 1) | (ml >>> 31)) + ((rl / 0x100000000) | 0)) | 0;
+    Cl = rl | 0; // prettier-ignore
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl; // prettier-ignore
+    Bh = rotrBH(xh, xl, 63);
+    Bl = rotrBL(xh, xl, 63); // prettier-ignore
     ((A2_BUF[2 * a] = Al), (A2_BUF[2 * a + 1] = Ah));
     ((A2_BUF[2 * b] = Bl), (A2_BUF[2 * b + 1] = Bh));
     ((A2_BUF[2 * c] = Cl), (A2_BUF[2 * c + 1] = Ch));
@@ -845,7 +981,7 @@ function Hp(A, dkLen) {
     // H' is byte-oriented; returning `u32(out)` would silently drop dkLen % 4 tail bytes.
     return out;
 }
-// Used only inside process block!
+// Used only inside argon2Blocks!
 function indexAlpha(r, s, laneLen, segmentLen, index, randL, sameLane = false) {
     // RFC 9106 §3.4.2 Figures 12-13: map `J1` / `J2` into the current lane's reference area `W`.
     let area;
@@ -874,6 +1010,7 @@ function isU32(num) {
     return Number.isSafeInteger(num) && num >= 0 && num < maxUint32;
 }
 function argon2Opts(opts) {
+    opts = checkOpts({}, opts);
     const merged = {
         version: 0x13,
         dkLen: 32,
@@ -896,7 +1033,7 @@ function argon2Opts(opts) {
     if (!isU32(t) || t < 1)
         throw new Error('"t" (iterations) must be 1..2^32');
     if (onProgress !== undefined && typeof onProgress !== 'function')
-        throw new Error('"progressCb" must be a function');
+        throw new Error('"onProgress" must be a function');
     anumber(asyncTick, 'asyncTick');
     /*
     Memory size m MUST be an integer number of kibibytes from 8*p
@@ -1002,38 +1139,13 @@ function argon2Output(B, p, laneLen, dkLen) {
     clean(B, B_final);
     return res;
 }
-function processBlock(B, address, l, r, s, index, laneLen, segmentLen, lanes, offset, prev, dataIndependent, needXor) {
-    if (offset % laneLen)
-        prev = offset - 1;
-    let randL, randH;
-    if (dataIndependent) {
-        let i128 = index % 128;
-        // RFC 9106 §3.4.1.2: each 1024-byte address block yields 128 `(J1, J2)` pairs, so regenerate
-        // it whenever the segment index crosses a multiple of 128.
-        if (i128 === 0) {
-            address[256 + 12]++;
-            block(address, 256, 2 * 256, 0, false);
-            block(address, 0, 2 * 256, 0, false);
-        }
-        randL = address[2 * i128];
-        randH = address[2 * i128 + 1];
-    }
-    else {
-        const T = 256 * prev;
-        randL = B[T];
-        randH = B[T + 1];
-    }
-    // Address-block path selects `J1` / `J2`, then maps them to the reference
-    // lane/block per RFC 9106 §3.4.
-    const refLane = r === 0 && s === 0 ? l : randH % lanes;
-    const refPos = indexAlpha(r, s, laneLen, segmentLen, index, randL, refLane == l);
-    const refBlock = laneLen * refLane + refPos;
-    // B[i][j] = G(B[i][j-1], B[l][z])
-    block(B, 256 * prev, 256 * refBlock, offset * 256, needXor);
-}
-function argon2(type, password, salt, opts) {
-    const { mP, p, t, version, B, laneLen, lanes, segmentLen, dkLen, perBlock } = argon2Init(password, salt, type, opts);
-    // Pre-loop setup
+/**
+ * Fills every Argon2 block for all passes / slices / lanes, yielding once per
+ * processed block so callers control pacing: the sync driver just drains the
+ * generator, while the async driver awaits `nextTick()` between time slices.
+ */
+function* argon2Blocks(ctx) {
+    const { type, mP, p, t, version, B, laneLen, lanes, segmentLen, perBlock } = ctx;
     // [address, input, zero_block] format so we can pass single U32 to block function
     const address = new Uint32Array(3 * 256);
     address[256 + 6] = mP;
@@ -1048,7 +1160,7 @@ function argon2(type, password, salt, opts) {
             address[256 + 4] = s;
             // RFC 9106 §3.4.1.3: Argon2id uses Argon2i's data-independent `J1` / `J2` generation only
             // in pass 0, slices 0 and 1; Argon2i uses it in every segment.
-            const dataIndependent = (r === 0 && s < 2);
+            const dataIndependent = type == AT.Argon2i || (type == AT.Argon2id && r === 0 && s < 2);
             for (let l = 0; l < p; l++) {
                 address[256 + 2] = l;
                 address[256 + 12] = 0;
@@ -1061,19 +1173,50 @@ function argon2(type, password, salt, opts) {
                         block(address, 0, 2 * 256, 0, false);
                     }
                 }
-                // current block postion
+                // current block position
                 let offset = l * laneLen + s * segmentLen + startPos;
-                // previous block position
-                let prev = offset % laneLen ? offset - 1 : offset + laneLen - 1;
-                for (let index = startPos; index < segmentLen; index++, offset++, prev++) {
+                for (let index = startPos; index < segmentLen; index++, offset++) {
                     perBlock();
-                    processBlock(B, address, l, r, s, index, laneLen, segmentLen, lanes, offset, prev, dataIndependent, needXor);
+                    // Previous block position: wraps to the lane's last block only at lane start,
+                    // which can happen here only for the first block of slice 0 on passes > 0.
+                    const prev = offset % laneLen ? offset - 1 : offset + laneLen - 1;
+                    let randL, randH;
+                    if (dataIndependent) {
+                        let i128 = index % 128;
+                        // RFC 9106 §3.4.1.2: each 1024-byte address block yields 128 `(J1, J2)` pairs, so
+                        // regenerate it whenever the segment index crosses a multiple of 128.
+                        if (i128 === 0) {
+                            address[256 + 12]++;
+                            block(address, 256, 2 * 256, 0, false);
+                            block(address, 0, 2 * 256, 0, false);
+                        }
+                        randL = address[2 * i128];
+                        randH = address[2 * i128 + 1];
+                    }
+                    else {
+                        const T = 256 * prev;
+                        randL = B[T];
+                        randH = B[T + 1];
+                    }
+                    // Address-block path selects `J1` / `J2`, then maps them to the reference
+                    // lane/block per RFC 9106 §3.4.
+                    const refLane = r === 0 && s === 0 ? l : randH % lanes;
+                    const refPos = indexAlpha(r, s, laneLen, segmentLen, index, randL, refLane == l);
+                    const refBlock = laneLen * refLane + refPos;
+                    // B[i][j] = G(B[i][j-1], B[l][z])
+                    block(B, 256 * prev, 256 * refBlock, offset * 256, needXor);
+                    yield;
                 }
             }
         }
     }
     clean(address);
-    return argon2Output(B, p, laneLen, dkLen);
+}
+function argon2(type, password, salt, opts) {
+    const ctx = argon2Init(password, salt, type, opts);
+    const blocks = argon2Blocks(ctx);
+    while (!blocks.next().done) { }
+    return argon2Output(ctx.B, ctx.p, ctx.laneLen, ctx.dkLen);
 }
 /**
  * Argon2id, combining i+d, the most popular version from RFC 9106.
@@ -1090,56 +1233,19 @@ function argon2(type, password, salt, opts) {
  */
 const argon2id$1 = (password, salt, opts) => argon2(AT.Argon2id, password, salt, opts);
 async function argon2Async(type, password, salt, opts) {
-    const { mP, p, t, version, B, laneLen, lanes, segmentLen, dkLen, perBlock, asyncTick } = argon2Init(password, salt, type, opts);
-    // Pre-loop setup
-    // [address, input, zero_block] format so we can pass single U32 to block function
-    const address = new Uint32Array(3 * 256);
-    address[256 + 6] = mP;
-    address[256 + 8] = t;
-    address[256 + 10] = type;
+    const ctx = argon2Init(password, salt, type, opts);
+    const blocks = argon2Blocks(ctx);
     let ts = Date.now();
-    for (let r = 0; r < t; r++) {
-        // RFC 9106 step 6 applies the XOR-on-later-passes rule only for version `0x13`; legacy
-        // `0x10` keeps the older overwrite behavior used by the v16 test vectors.
-        const needXor = r !== 0 && version === 0x13;
-        address[256 + 0] = r;
-        for (let s = 0; s < ARGON2_SYNC_POINTS; s++) {
-            address[256 + 4] = s;
-            // RFC 9106 §3.4.1.3: Argon2id uses Argon2i's data-independent `J1` / `J2` generation only
-            // in pass 0, slices 0 and 1; Argon2i uses it in every segment.
-            const dataIndependent = (r === 0 && s < 2);
-            for (let l = 0; l < p; l++) {
-                address[256 + 2] = l;
-                address[256 + 12] = 0;
-                let startPos = 0;
-                if (r === 0 && s === 0) {
-                    startPos = 2;
-                    if (dataIndependent) {
-                        address[256 + 12]++;
-                        block(address, 256, 2 * 256, 0, false);
-                        block(address, 0, 2 * 256, 0, false);
-                    }
-                }
-                // current block postion
-                let offset = l * laneLen + s * segmentLen + startPos;
-                // previous block position
-                let prev = offset % laneLen ? offset - 1 : offset + laneLen - 1;
-                for (let index = startPos; index < segmentLen; index++, offset++, prev++) {
-                    perBlock();
-                    processBlock(B, address, l, r, s, index, laneLen, segmentLen, lanes, offset, prev, dataIndependent, needXor);
-                    // Date.now() is not monotonic. If the clock goes backwards,
-                    // still yield control.
-                    const diff = Date.now() - ts;
-                    if (!(diff >= 0 && diff < asyncTick)) {
-                        await nextTick();
-                        ts += diff;
-                    }
-                }
-            }
-        }
+    while (!blocks.next().done) {
+        // Date.now() is not monotonic. If the clock goes backwards,
+        // still yield control.
+        const diff = Date.now() - ts;
+        if (diff >= 0 && diff < ctx.asyncTick)
+            continue;
+        await nextTick();
+        ts += diff;
     }
-    clean(address);
-    return argon2Output(B, p, laneLen, dkLen);
+    return argon2Output(ctx.B, ctx.p, ctx.laneLen, ctx.dkLen);
 }
 /**
  * Argon2id async, combining i+d, the most popular version from RFC 9106.

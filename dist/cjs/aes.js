@@ -21,6 +21,29 @@ function isBytes(a) {
             'BYTES_PER_ELEMENT' in a &&
             a.BYTES_PER_ELEMENT === 1));
 }
+// Shared error-message prefix builder. Only called on throw paths, so assert
+// success paths never pay for the string concatenation.
+const atitle = (title) => (title ? `"${title}" ` : '');
+/**
+ * Asserts something is a non-negative integer.
+ * @param n - number to validate
+ * @param title - label included in thrown errors
+ * @returns The validated number.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @example
+ * Validate a non-negative integer option.
+ * ```ts
+ * anumber(32, 'length');
+ * ```
+ */
+function anumber(n, title = '') {
+    if (typeof n !== 'number')
+        throw new TypeError(atitle(title) + 'expected number, got ' + typeof n);
+    if (!Number.isSafeInteger(n) || n < 0)
+        throw new RangeError(atitle(title) + 'expected integer >= 0, got ' + n);
+    return n;
+}
 /**
  * Asserts something is Uint8Array.
  * @param value - value to validate
@@ -36,19 +59,20 @@ function isBytes(a) {
  * ```
  */
 function abytes(value, length, title = '') {
+    // Success path first: this runs at the start of every update() / digestInto(), and the
+    // common `abytes(data)` form must not pay for length handling it does not use.
+    if (isBytes(value) && (length === undefined || value.length === length))
+        return value;
+    // Error path: recompute freely to build the exact message.
+    if (length !== undefined)
+        anumber(length, 'length');
     const bytes = isBytes(value);
-    const len = value?.length;
-    const needsLen = length !== undefined;
-    if (!bytes || (needsLen && len !== length)) {
-        const prefix = title && `"${title}" `;
-        const ofLen = needsLen ? ` of length ${length}` : '';
-        const got = bytes ? `length=${len}` : `type=${typeof value}`;
-        const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
-        if (!bytes)
-            throw new TypeError(message);
-        throw new RangeError(message);
-    }
-    return value;
+    const ofLen = length !== undefined ? ` of length ${length}` : '';
+    const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+    const message = atitle(title) + 'expected Uint8Array' + ofLen + ', got ' + got;
+    if (!bytes)
+        throw new TypeError(message);
+    throw new RangeError(message);
 }
 /**
  * Copies several Uint8Arrays into one.
