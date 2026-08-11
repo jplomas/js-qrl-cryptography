@@ -58,7 +58,7 @@ jobs:
           # Node 22's bundled npm cannot publish with OIDC; keep this exact pin
           # synchronized with the package.json override and Dependabot updates.
           # (required for trusted publishing), mirroring qrypto.js.
-          node-version: '22.14.0'
+          node-version: '22.22.2'
 
       - name: Use npm 11 for trusted publishing
         # zizmor: ignore[adhoc-packages]
