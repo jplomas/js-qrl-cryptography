@@ -60,10 +60,21 @@ function isReleasable(message) {
   return RELEASABLE_TYPES.has(type);
 }
 
-const overridden = commits.find((c) => c.includes(OVERRIDE_TRAILER));
-if (overridden) {
-  const reason = /Skip-Release-Check:(.*)/.exec(overridden)[1].trim();
-  console.log(`Release-type check overridden: ${reason || '(no reason given)'}`);
+// Honour the token only as a real trailer: on its own line, in the message's
+// final block, carrying a reason. Prose that merely names it — a quoted CI
+// error, a PR description pasted into the body — must not disable the guard.
+function overrideReason(message) {
+  const trailers = message.split(/\n[ \t]*\n/).pop();
+  return trailers
+    .split('\n')
+    .filter((line) => line.startsWith(OVERRIDE_TRAILER))
+    .map((line) => line.slice(OVERRIDE_TRAILER.length).trim())
+    .find(Boolean);
+}
+
+const reason = commits.map(overrideReason).find(Boolean);
+if (reason) {
+  console.log(`Release-type check overridden: ${reason}`);
   process.exit(0);
 }
 
