@@ -55,18 +55,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          # Node 22's bundled npm cannot publish with OIDC; keep this exact pin
-          # synchronized with the package.json override and Dependabot updates.
-          # (required for trusted publishing), mirroring qrypto.js.
-          node-version: '22.22.2'
-
-      - name: Use npm 11 for trusted publishing
-        # zizmor: ignore[adhoc-packages]
-        # Trusted publishing requires npm 11.5.1+; the exact version is reviewed,
-        # pinned here, and kept in sync with the audited package-lock override.
-        run: |
-          npm install -g npm@11.19.0
-          npm --version
+          # Trusted publishing needs npm >= 11.5.1 on PATH; this Node bundles
+          # npm 11.17.0. Keep >= 24.11.0. Do not self-update npm in place —
+          # it deletes modules out from under the running process.
+          node-version: '24.19.0'
 
       - name: Install dependencies
         run: npm ci
