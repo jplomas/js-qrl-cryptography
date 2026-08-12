@@ -81,6 +81,24 @@ jobs:
       - name: Check for uncommitted dist changes
         run: npm run verify:dist
 
+  releasable-check:
+    name: Shipped changes carry a releasable commit
+    # PR-only: on push to main the merge has already happened, and semantic-release
+    # itself commits a rebuilt dist/ under `chore(release):`, which this would flag.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the check diffs the branch against its merge base.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check for a release-triggering commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-releasable.mjs
+
   packaging:
     name: Packaging smoke (tarball consumers)
     runs-on: ubuntu-latest

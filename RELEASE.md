@@ -14,6 +14,21 @@ The system uses **Conventional Commits** format to trigger different version cha
 Other prefixes (`chore:`, `docs:`, `test:`, `refactor:`, `ci:`, `deps:`) do not trigger releases.
 (The exact mapping lives in `.releaserc.json` — keep this list in sync with it.)
 
+### Changes to shipped bytes must be releasable
+
+semantic-release reads commit *messages* only — it never inspects the diff. A rebuilt `dist/` or a
+bumped runtime dependency landed under `chore:` therefore publishes nothing, and npm keeps serving
+the previous bundle while `main` moves ahead. Because the CJS build vendors `@noble/hashes`
+(`rollup.config.mjs`), that silently leaves consumers on a stale copy.
+
+The `releasable-check` CI job enforces this: a PR that changes `dist/` or the `dependencies` block
+must carry a `feat:`, `fix:`, `perf:`, or breaking commit. **A runtime dependency bump that reaches
+consumers is a `fix:`, not a `chore:`** — reserve `chore(deps)` for dev-only dependencies, which do
+not change shipped bytes.
+
+To bypass deliberately (e.g. reverting `dist/` churn that was never published), add a
+`Skip-Release-Check: <reason>` trailer to a commit on the branch.
+
 ## Commit Message Format
 
 Messages follow this template:
