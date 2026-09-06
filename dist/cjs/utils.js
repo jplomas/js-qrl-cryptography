@@ -75,6 +75,20 @@ function abytes(value, length, title = '') {
     throw new RangeError(message);
 }
 /**
+ * Zeroizes typed arrays in place. Warning: JS provides no guarantees.
+ * @param arrays - arrays to overwrite with zeros
+ * @example
+ * Zeroize sensitive buffers in place.
+ * ```ts
+ * clean(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function clean(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+        arrays[i].fill(0);
+    }
+}
+/**
  * Creates a DataView for byte-level manipulation.
  * @param arr - source typed array
  * @returns DataView over the same buffer region.
@@ -184,7 +198,15 @@ function hexToBytes$1(hex) {
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    const encoded = new TextEncoder().encode(str);
+    try {
+        // Copy into the current realm for Firefox extension contexts. Callers that own the returned
+        // buffer can then wipe it independently of TextEncoder's temporary result.
+        return new Uint8Array(encoded); // https://bugzil.la/1681809
+    }
+    finally {
+        clean(encoded);
+    }
 }
 /**
  * Copies several Uint8Arrays into one.
