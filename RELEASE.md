@@ -29,6 +29,29 @@ not change shipped bytes.
 To bypass deliberately (e.g. reverting `dist/` churn that was never published), add a
 `Skip-Release-Check: <reason>` trailer to a commit on the branch.
 
+### Changelog tooling must stay in step
+
+The `conventionalcommits` preset and `conventional-changelog-writer` are versioned
+separately, and semantic-release's plugins pin the writer. When the two drift, the
+release notes break in one of two ways:
+
+- **Loudly** — the preset throws `Missing helper: ... requires
+  conventional-changelog-writer@9 or newer` and `generateNotes` aborts the run. The tag
+  is cut *after* notes render, so this stops the release rather than corrupting it.
+- **Silently** — the preset emits a `template` key the older writer ignores, the writer
+  falls back to its default, and every release ships a changelog entry with a header and
+  no commits. This is how 0.3.0 and 0.3.1 came to have empty release notes.
+
+Because `@semantic-release/release-notes-generator` still pins `conventional-changelog-writer@^8`,
+`package.json` overrides it to `9.x`. Keep that override until semantic-release ships
+plugins on writer 9; dropping it silently empties the changelog again.
+
+The `release-notes` CI job (`scripts/check-release-notes.mjs`) renders notes on every PR
+and fails on both modes. It exists because `semantic-release --dry-run` cannot catch
+either: on a PR branch semantic-release stops at "configured to only publish from main",
+and even aimed at the branch it stops at "no relevant changes" unless the PR carries a
+`feat:`/`fix:`/`perf:` commit — which a Dependabot dev-dependency PR never does.
+
 ## Commit Message Format
 
 Messages follow this template:

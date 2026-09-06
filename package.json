@@ -185,7 +185,7 @@
     "tsx": "4.23.13",
     "typescript": "6.0.3",
     "webpack": "5.110.3",
-    "webpack-cli": "7.2.2"
+    "webpack-cli": "7.2.3"
   },
   "c8": {
     "include": [
@@ -221,7 +221,8 @@
     "fast-uri": "4.1.2",
     "js-yaml": "4.3.1",
     "undici": "8.10.0",
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.1",
+    "conventional-changelog-writer": "9.2.1"
   },
   "keywords": [
     "qrl",
