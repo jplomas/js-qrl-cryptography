@@ -1,3 +1,10 @@
+## [0.3.2](https://github.com/theQRL/js-qrl-cryptography/compare/v0.3.1...v0.3.2) (2026-09-06)
+
+### Bug Fixes
+
+* **deps:** bump @noble/hashes to 2.4.0 and @theqrl/mldsa87 to 2.1.5 ([748a375](https://github.com/theQRL/js-qrl-cryptography/commit/748a375ae7a5d133f236786c25597b2f39b514e4))
+* restore release-notes rendering and guard it in CI ([ecf3072](https://github.com/theQRL/js-qrl-cryptography/commit/ecf30728c2cbe024f81307b47504c1b671700354))
+
 ## [0.3.1](https://github.com/theQRL/js-qrl-cryptography/compare/v0.3.0...v0.3.1) (2026-08-12)
 
 ## [0.3.0](https://github.com/theQRL/js-qrl-cryptography/compare/v0.2.0...v0.3.0) (2026-07-15)
