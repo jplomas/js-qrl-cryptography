@@ -127,7 +127,7 @@
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
-    "@theqrl/mldsa87": "2.1.5"
+    "@theqrl/mldsa87": "2.2.0"
   },
   "browser": {
     "crypto": false
