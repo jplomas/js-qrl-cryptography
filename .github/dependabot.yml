@@ -16,6 +16,10 @@ updates:
           - "@noble/*"
           - "@theqrl/*"
     ignore:
+      # c8 12's experimental Monocart integration requires monocart-coverage-reports ^2.
+      # Allow major updates once c8 supports the new reporter version.
+      - dependency-name: "monocart-coverage-reports"
+        update-types: ["version-update:semver-major"]
       # TypeScript 7 (typescript-go) ships no JS compiler API, so typescript-eslint
       # (peer typescript <6.1.0) cannot load it and `npm ci` fails with ERESOLVE.
       # Drop this once typescript-eslint supports TS 7:
